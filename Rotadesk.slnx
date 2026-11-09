@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Rotadesk.Api/Rotadesk.Api.csproj" />
+    <Project Path="src/Rotadesk.Domain/Rotadesk.Domain.csproj" />
+    <Project Path="src/Rotadesk.Infrastructure/Rotadesk.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Rotadesk.Domain.Tests/Rotadesk.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

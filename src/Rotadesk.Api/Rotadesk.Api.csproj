@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\Rotadesk.Infrastructure\Rotadesk.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
