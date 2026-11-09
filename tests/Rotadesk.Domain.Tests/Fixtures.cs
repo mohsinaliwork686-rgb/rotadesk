@@ -28,4 +28,6 @@ internal static class Fixtures
     public static Shift ShiftFor(StaffMember? person, DateOnly day, int fromHour, int toHour, int fromMinute = 0, int toMinute = 0) =>
         new(Tenant, RotaWeekId, At(day, fromHour, fromMinute), At(day, toHour, toMinute), person?.Id);
 
+    public static ScheduleCheck Check(StaffMember person, Shift candidate, IEnumerable<Shift> existing, IEnumerable<Availability>? availability = null, TimeZoneInfo? zone = null) =>
+        SchedulingRules.Check(person, candidate.Id, candidate.Start, candidate.End, existing, availability ?? [], zone ?? London);
 }
