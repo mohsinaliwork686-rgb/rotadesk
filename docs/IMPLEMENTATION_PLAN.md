@@ -194,7 +194,7 @@ is edited (whoever is affected).
 |---------|-----|
 | `Microsoft.EntityFrameworkCore`, `Npgsql.EntityFrameworkCore.PostgreSQL` | The database, migrations, query filters, `xmin` |
 | `Microsoft.AspNetCore.Identity.EntityFrameworkCore` | Users, password hashes and roles, without writing my own |
-| `xunit.v3`, `Microsoft.NET.Test.Sdk` | Tests |
+| `xunit.v3` | Tests, on Microsoft.Testing.Platform (changed Monday: the current xUnit v3 needs it, and it needs no other test packages) |
 | `Testcontainers.PostgreSql` | Real PostgreSQL in tests: constraints and concurrency behave as in production |
 | `Microsoft.AspNetCore.Mvc.Testing` | Runs the API in memory for the HTTP tests |
 | `react`, `react-router`, `vite`, `typescript`, `vitest` | The front end and its tests |
