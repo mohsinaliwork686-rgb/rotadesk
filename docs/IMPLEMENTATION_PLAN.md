@@ -185,6 +185,7 @@ is edited (whoever is affected).
 | `src/Rotadesk.Infrastructure` | `RotadeskDbContext`, mappings, the tenant filter and write guard, migrations, the outbox store, the email senders |
 | `src/Rotadesk.Api` | Startup, endpoints, policies, ProblemDetails, the outbox worker, demo seed data, serving the front end |
 | `tests/Rotadesk.Domain.Tests` | Fast unit tests of the rules and the state machine |
+| `tests/Rotadesk.Infrastructure.Tests` | The database on its own, against real PostgreSQL: migrations, the tenant filters and write guard, `xmin`, round trips (added Tuesday) |
 | `tests/Rotadesk.Api.Tests` | The API through `WebApplicationFactory`, against real PostgreSQL in Testcontainers: isolation, roles, concurrency, outbox, migrations |
 | `web/` | React and TypeScript with Vite. All logic in `web/src/lib`, no React there |
 
@@ -193,6 +194,7 @@ is edited (whoever is affected).
 | Package | Why |
 |---------|-----|
 | `Microsoft.EntityFrameworkCore`, `Npgsql.EntityFrameworkCore.PostgreSQL` | The database, migrations, query filters, `xmin` |
+| `EFCore.NamingConventions` | snake_case table and column names, so SQL written by hand needs no quotes (added Tuesday) |
 | `Microsoft.AspNetCore.Identity.EntityFrameworkCore` | Users, password hashes and roles, without writing my own |
 | `xunit.v3` | Tests, on Microsoft.Testing.Platform (changed Monday: the current xUnit v3 needs it, and it needs no other test packages) |
 | `Testcontainers.PostgreSql` | Real PostgreSQL in tests: constraints and concurrency behave as in production |
@@ -251,3 +253,17 @@ learn and configure, and the built-in pieces cover what this app needs.
 - [ ] CI green: format, build with warnings as errors, unit tests, the API tests against real PostgreSQL, the front end checks
 - [ ] A live demo with two sample businesses and one-click sign-in
 - [ ] At least 10 commits, one logical change each
+
+## 16. Changes since Monday
+
+**Tuesday 10 November.**
+
+- **The write guard checks instead of stamping.** The plan said it would stamp the tenant on new rows. The domain
+  constructors already take the tenant, so the guard refuses a save that adds, changes, deletes or moves another
+  business's row instead. The outbox worker uses a separate system context, which the guard allows.
+- **Database tests have their own project,** `Rotadesk.Infrastructure.Tests`, so the filters, guard and concurrency are
+  proven before the API exists. In CI they run on Linux, because GitHub's macOS and Windows runners can't run Linux
+  containers. The domain tests still run on all three.
+- **"Until midnight" is 23:59:59.999999,** not `TimeOnly.MaxValue`. PostgreSQL stores times to the microsecond, so the
+  .NET maximum came back a fraction earlier, and a round-trip test caught it.
+
