@@ -2,11 +2,17 @@ namespace Rotadesk.Domain;
 
 /// <summary>
 /// A weekly window when someone can usually work, in the business's local time. A window stays within
-/// one day, and <see cref="TimeOnly.MaxValue"/> as the end means until midnight. Someone who can work
+/// one day, and <see cref="EndOfDay"/> as the end means until midnight. Someone who can work
 /// overnight adds two windows: one until midnight, and one from midnight on the next day.
 /// </summary>
 public sealed class Availability : ITenantOwned
 {
+    /// <summary>
+    /// The end of a window that runs until midnight. It is a microsecond before midnight, not
+    /// <see cref="TimeOnly.MaxValue"/>, because PostgreSQL stores times to the microsecond.
+    /// </summary>
+    public static readonly TimeOnly EndOfDay = new(23, 59, 59, 999, 999);
+
     private Availability()
     {
     }
@@ -23,7 +29,7 @@ public sealed class Availability : ITenantOwned
         StaffMemberId = staffMemberId;
         Day = day;
         From = from;
-        To = to;
+        To = to > EndOfDay ? EndOfDay : to;
     }
 
     public Guid Id { get; private set; }

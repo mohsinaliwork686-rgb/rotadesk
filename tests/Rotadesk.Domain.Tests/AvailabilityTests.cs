@@ -9,7 +9,7 @@ public class AvailabilityTests
     private static readonly DateOnly Friday = Monday.AddDays(4);
 
     private static Availability Window(StaffMember person, DayOfWeek day, int from, int to) =>
-        new(Tenant, person.Id, day, new TimeOnly(from, 0), to == 24 ? TimeOnly.MaxValue : new TimeOnly(to, 0));
+        new(Tenant, person.Id, day, new TimeOnly(from, 0), to == 24 ? Availability.EndOfDay : new TimeOnly(to, 0));
 
     [Fact]
     public void Someone_with_no_availability_set_gets_no_warning()
@@ -77,6 +77,14 @@ public class AvailabilityTests
         var evening = new Shift(Tenant, RotaWeekId, At(Friday, 18), At(Friday.AddDays(1), 0), amira.Id);
 
         Assert.Empty(Check(amira, evening, [], [Window(amira, DayOfWeek.Friday, 17, 24)]).Warnings);
+    }
+
+    [Fact]
+    public void A_window_ending_at_the_largest_time_is_stored_as_until_midnight()
+    {
+        var window = new Availability(Tenant, Person().Id, DayOfWeek.Friday, new TimeOnly(18, 0), TimeOnly.MaxValue);
+
+        Assert.Equal(Availability.EndOfDay, window.To);
     }
 
     [Fact]

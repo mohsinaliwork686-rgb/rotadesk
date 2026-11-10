@@ -89,7 +89,7 @@ public static class SchedulingRules
             return Covered(day, from, TimeOnly.FromDateTime(localEnd));
         }
 
-        var untilMidnight = Covered(day, from, TimeOnly.MaxValue);
+        var untilMidnight = Covered(day, from, Availability.EndOfDay);
         return localEnd.TimeOfDay == TimeSpan.Zero
             ? untilMidnight
             : untilMidnight && Covered(localEnd.DayOfWeek, TimeOnly.MinValue, TimeOnly.FromDateTime(localEnd));
