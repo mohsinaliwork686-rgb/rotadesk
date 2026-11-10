@@ -28,7 +28,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     public RotadeskDbContext NewContext(ITenantContext tenant)
     {
         var options = new DbContextOptionsBuilder<RotadeskDbContext>();
-        DependencyInjection.Configure(options, ConnectionString);
+        DependencyInjection.Configure(options, ConnectionString).AddInterceptors(new TenantGuardInterceptor());
         return new RotadeskDbContext(options.Options, tenant);
     }
 

@@ -9,7 +9,9 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddRotadeskDatabase(this IServiceCollection services, string connectionString)
     {
-        services.AddDbContext<RotadeskDbContext>(options => Configure(options, connectionString));
+        services.AddSingleton<TenantGuardInterceptor>();
+        services.AddDbContext<RotadeskDbContext>((provider, options) =>
+            Configure(options, connectionString).AddInterceptors(provider.GetRequiredService<TenantGuardInterceptor>()));
         return services;
     }
 
