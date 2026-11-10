@@ -26,4 +26,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: dotnet format Rotadesk.slnx --verify-no-changes --no-restore
       - run: dotnet build Rotadesk.slnx --configuration Release --no-restore
-      - run: dotnet test --solution Rotadesk.slnx --configuration Release --no-build
+      - name: test everything, with PostgreSQL in Docker
+        if: matrix.os == 'ubuntu-latest'
+        run: dotnet test --solution Rotadesk.slnx --configuration Release --no-build
+      # GitHub's macOS and Windows runners can't run Linux containers, so they run the domain tests only.
+      - name: test the domain
+        if: matrix.os != 'ubuntu-latest'
+        run: dotnet test --project tests/Rotadesk.Domain.Tests --configuration Release --no-build
