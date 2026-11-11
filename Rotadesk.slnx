@@ -5,6 +5,7 @@
     <Project Path="src/Rotadesk.Infrastructure/Rotadesk.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Rotadesk.Api.Tests/Rotadesk.Api.Tests.csproj" />
     <Project Path="tests/Rotadesk.Domain.Tests/Rotadesk.Domain.Tests.csproj" />
     <Project Path="tests/Rotadesk.Infrastructure.Tests/Rotadesk.Infrastructure.Tests.csproj" />
   </Folder>
