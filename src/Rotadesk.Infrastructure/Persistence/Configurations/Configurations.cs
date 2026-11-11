@@ -24,6 +24,9 @@ internal sealed class StaffMemberConfiguration : IEntityTypeConfiguration<StaffM
         builder.Property(s => s.Email).HasMaxLength(320);
         builder.Property(s => s.Role).HasConversion<string>().HasMaxLength(16);
         builder.HasIndex(s => new { s.TenantId, s.Email }).IsUnique();
+
+        // Lets a sign-in account point at its staff member and business together, so the two can't disagree.
+        builder.HasIndex(s => new { s.TenantId, s.Id }).IsUnique();
         builder.Ignore(s => s.IsManager);
     }
 }

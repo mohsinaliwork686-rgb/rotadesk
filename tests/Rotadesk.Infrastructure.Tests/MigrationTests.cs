@@ -12,4 +12,13 @@ public class MigrationTests(PostgresFixture fixture)
         Assert.Empty(await db.Database.GetPendingMigrationsAsync(TestContext.Current.CancellationToken));
         Assert.False(db.Database.HasPendingModelChanges());
     }
+
+    [Fact]
+    public async Task Account_migrations_apply_and_match_the_model()
+    {
+        await using var accounts = fixture.NewAccounts();
+
+        Assert.Empty(await accounts.Database.GetPendingMigrationsAsync(TestContext.Current.CancellationToken));
+        Assert.False(accounts.Database.HasPendingModelChanges());
+    }
 }

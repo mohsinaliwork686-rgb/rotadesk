@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 
 using Rotadesk.Infrastructure;
+using Rotadesk.Infrastructure.Accounts;
 using Rotadesk.Infrastructure.Persistence;
 
 using Testcontainers.PostgreSql;
@@ -19,8 +20,14 @@ public sealed class PostgresFixture : IAsyncLifetime
     public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
-        await using var db = NewContext(SystemTenant.Instance);
-        await db.Database.MigrateAsync();
+        await using (var db = NewContext(SystemTenant.Instance))
+        {
+            await db.Database.MigrateAsync();
+        }
+
+        // After the business data, because the accounts point at staff members.
+        await using var accounts = NewAccounts();
+        await accounts.Database.MigrateAsync();
     }
 
     public async ValueTask DisposeAsync() => await _container.DisposeAsync();
@@ -33,4 +40,11 @@ public sealed class PostgresFixture : IAsyncLifetime
     }
 
     public RotadeskDbContext For(Guid tenantId) => NewContext(new FixedTenant(tenantId));
+
+    public AccountsDbContext NewAccounts()
+    {
+        var options = new DbContextOptionsBuilder<AccountsDbContext>();
+        DependencyInjection.ConfigureAccounts(options, ConnectionString);
+        return new AccountsDbContext(options.Options);
+    }
 }

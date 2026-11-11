@@ -209,6 +209,10 @@ namespace Rotadesk.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_staff_members_tenant_id_email");
 
+                    b.HasIndex("TenantId", "Id")
+                        .IsUnique()
+                        .HasDatabaseName("ix_staff_members_tenant_id_id");
+
                     b.ToTable("staff_members", (string)null);
                 });
 
