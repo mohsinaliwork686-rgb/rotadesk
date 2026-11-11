@@ -267,3 +267,31 @@ learn and configure, and the built-in pieces cover what this app needs.
 - **"Until midnight" is 23:59:59.999999,** not `TimeOnly.MaxValue`. PostgreSQL stores times to the microsecond, so the
   .NET maximum came back a fraction earlier, and a round-trip test caught it.
 
+
+**Wednesday 11 November.**
+
+- **Sign-in accounts have their own context and schema.** Identity's tables sit in `accounts`, in
+  `AccountsDbContext`, not in `RotadeskDbContext`. Accounts are looked up before anyone's business is known, so they
+  can't be behind the tenant filter, and keeping them out keeps the model test's rule true: every table in the main
+  context belongs to a business. The two contexts can't share an EF relationship, so the accounts migration adds the
+  foreign key in SQL, on (business, staff member), so an account can't claim one business and point at another's staff
+  member. Deleting a staff member deletes their account.
+- **Roles are read live.** The cookie holds who you are (account, business, staff member), not your role. Each request
+  reads the role from the staff record, once, through the tenant filter. A demoted manager loses manager endpoints on
+  their next request, and a cookie whose staff member is gone or belongs to another business passes no policy.
+- **Bad input is a 400, a broken rule is a 409.** Times that can never be right (end before start, over 16 hours, a week
+  that doesn't start on Monday, "9am") are 400s. A rule that refuses the change now (an overlap, the weekly limit, the
+  last owner, an already published week) is a 409 that names the rule. A stale save is a 409 too.
+- **Copying last week is in.** The non-goals mention it, so it's an endpoint: same local times, so 09:00 stays 09:00
+  across a clock change, only into an empty, unpublished week, and a shift its person can't take any more is copied
+  without them with the reason.
+- **A shift stays in its week,** and a shift that's part of a swap request can't be deleted. Availability is replaced as a
+  whole and merged where windows overlap or touch, and "24:00" means until midnight.
+- **The demo seed has people today.** Demo sign-in needs someone to sign in as, so the two businesses and their staff
+  (no passwords) are seeded now. Their shifts, availability and swaps come with the rest of the seed data on Tuesday.
+- **Found, for Thursday's isolation work:** with the tenant filter bypassed on purpose, the database accepted a shift of
+  one business assigned to another business's staff member, because that foreign key is on the staff member's id alone.
+  The filter stops it today; composite (business, id) keys on shifts, availability and swap requests would make the
+  database refuse it as well.
+- **For deploy day:** the cookie is `HttpOnly` and `SameSite=Lax`. Behind the host's HTTPS proxy it needs the forwarded
+  headers set, so the app sees HTTPS and marks the cookie `Secure`.
