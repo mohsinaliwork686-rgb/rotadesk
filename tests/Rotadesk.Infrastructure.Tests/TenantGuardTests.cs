@@ -47,13 +47,24 @@ public class TenantGuardTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task Moving_a_row_to_another_business_is_refused()
+    public async Task A_row_whose_key_includes_the_business_cant_be_moved_at_all()
+    {
+        var data = await TwoBusinesses.CreateAsync(fixture);
+        await using var db = fixture.For(data.A.Business.Id);
+        var shift = await db.Shifts.SingleAsync(s => s.Id == data.A.Shift.Id, Token);
+
+        // Shifts, staff members and weeks are pointed at by (business, id), so EF treats the business as part of the key.
+        Assert.Throws<InvalidOperationException>(() => db.Entry(shift).Property(s => s.TenantId).CurrentValue = data.B.Business.Id);
+    }
+
+    [Fact]
+    public async Task Moving_any_other_row_to_another_business_is_refused()
     {
         var data = await TwoBusinesses.CreateAsync(fixture);
         await using var db = fixture.For(data.A.Business.Id);
 
-        var shift = await db.Shifts.SingleAsync(s => s.Id == data.A.Shift.Id, Token);
-        db.Entry(shift).Property(s => s.TenantId).CurrentValue = data.B.Business.Id;
+        var window = await db.Availability.SingleAsync(a => a.Id == data.A.Window.Id, Token);
+        db.Entry(window).Property(a => a.TenantId).CurrentValue = data.B.Business.Id;
 
         await Assert.ThrowsAsync<TenantViolationException>(() => db.SaveChangesAsync(Token));
     }

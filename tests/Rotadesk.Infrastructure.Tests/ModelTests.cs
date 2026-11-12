@@ -45,4 +45,21 @@ public class ModelTests(PostgresFixture fixture)
 
         Assert.Empty(shared);
     }
+
+    [Fact]
+    public void Every_link_between_business_owned_rows_includes_the_business()
+    {
+        using var db = fixture.NewContext(new FixedTenant(Guid.NewGuid()));
+
+        var unscoped = db.Model.GetEntityTypes()
+            .SelectMany(e => e.GetForeignKeys())
+            .Where(fk => typeof(ITenantOwned).IsAssignableFrom(fk.DeclaringEntityType.ClrType)
+                && typeof(ITenantOwned).IsAssignableFrom(fk.PrincipalEntityType.ClrType))
+            .Where(fk => fk.Properties.All(p => p.Name != nameof(ITenantOwned.TenantId))
+                || fk.PrincipalKey.Properties.All(p => p.Name != nameof(ITenantOwned.TenantId)))
+            .Select(fk => $"{fk.DeclaringEntityType.ClrType.Name}.{string.Join("+", fk.Properties.Select(p => p.Name))}")
+            .ToList();
+
+        Assert.Empty(unscoped);
+    }
 }

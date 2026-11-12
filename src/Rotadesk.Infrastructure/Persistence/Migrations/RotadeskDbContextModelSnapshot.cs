@@ -52,9 +52,6 @@ namespace Rotadesk.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_availability");
 
-                    b.HasIndex("StaffMemberId")
-                        .HasDatabaseName("ix_availability_staff_member_id");
-
                     b.HasIndex("TenantId", "StaffMemberId")
                         .HasDatabaseName("ix_availability_tenant_id_staff_member_id");
 
@@ -111,6 +108,9 @@ namespace Rotadesk.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_rota_weeks");
 
+                    b.HasAlternateKey("TenantId", "Id")
+                        .HasName("ak_rota_weeks_tenant_id_id");
+
                     b.HasIndex("TenantId", "WeekStart")
                         .IsUnique()
                         .HasDatabaseName("ix_rota_weeks_tenant_id_week_start");
@@ -154,11 +154,11 @@ namespace Rotadesk.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_shifts");
 
-                    b.HasIndex("RotaWeekId")
-                        .HasDatabaseName("ix_shifts_rota_week_id");
+                    b.HasAlternateKey("TenantId", "Id")
+                        .HasName("ak_shifts_tenant_id_id");
 
-                    b.HasIndex("StaffMemberId")
-                        .HasDatabaseName("ix_shifts_staff_member_id");
+                    b.HasIndex("TenantId", "RotaWeekId")
+                        .HasDatabaseName("ix_shifts_tenant_id_rota_week_id");
 
                     b.HasIndex("TenantId", "StaffMemberId", "Start")
                         .HasDatabaseName("ix_shifts_tenant_id_staff_member_id_start");
@@ -205,13 +205,12 @@ namespace Rotadesk.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_staff_members");
 
+                    b.HasAlternateKey("TenantId", "Id")
+                        .HasName("ak_staff_members_tenant_id_id");
+
                     b.HasIndex("TenantId", "Email")
                         .IsUnique()
                         .HasDatabaseName("ix_staff_members_tenant_id_email");
-
-                    b.HasIndex("TenantId", "Id")
-                        .IsUnique()
-                        .HasDatabaseName("ix_staff_members_tenant_id_id");
 
                     b.ToTable("staff_members", (string)null);
                 });
@@ -274,17 +273,17 @@ namespace Rotadesk.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_swap_requests");
 
-                    b.HasIndex("ColleagueId")
-                        .HasDatabaseName("ix_swap_requests_colleague_id");
+                    b.HasIndex("TenantId", "ColleagueId")
+                        .HasDatabaseName("ix_swap_requests_tenant_id_colleague_id");
 
-                    b.HasIndex("OfferedShiftId")
-                        .HasDatabaseName("ix_swap_requests_offered_shift_id");
+                    b.HasIndex("TenantId", "OfferedShiftId")
+                        .HasDatabaseName("ix_swap_requests_tenant_id_offered_shift_id");
 
-                    b.HasIndex("RequesterId")
-                        .HasDatabaseName("ix_swap_requests_requester_id");
+                    b.HasIndex("TenantId", "RequesterId")
+                        .HasDatabaseName("ix_swap_requests_tenant_id_requester_id");
 
-                    b.HasIndex("ReturnShiftId")
-                        .HasDatabaseName("ix_swap_requests_return_shift_id");
+                    b.HasIndex("TenantId", "ReturnShiftId")
+                        .HasDatabaseName("ix_swap_requests_tenant_id_return_shift_id");
 
                     b.HasIndex("TenantId", "Status")
                         .HasDatabaseName("ix_swap_requests_tenant_id_status");
@@ -294,19 +293,20 @@ namespace Rotadesk.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Rotadesk.Domain.Availability", b =>
                 {
-                    b.HasOne("Rotadesk.Domain.StaffMember", null)
-                        .WithMany()
-                        .HasForeignKey("StaffMemberId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_availability_staff_members_staff_member_id");
-
                     b.HasOne("Rotadesk.Domain.Business", null)
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_availability_businesses_tenant_id");
+
+                    b.HasOne("Rotadesk.Domain.StaffMember", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "StaffMemberId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_availability_staff_members_tenant_id_staff_member_id");
                 });
 
             modelBuilder.Entity("Rotadesk.Domain.RotaWeek", b =>
@@ -321,25 +321,27 @@ namespace Rotadesk.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Rotadesk.Domain.Shift", b =>
                 {
-                    b.HasOne("Rotadesk.Domain.RotaWeek", null)
-                        .WithMany()
-                        .HasForeignKey("RotaWeekId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_shifts_rota_weeks_rota_week_id");
-
-                    b.HasOne("Rotadesk.Domain.StaffMember", null)
-                        .WithMany()
-                        .HasForeignKey("StaffMemberId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_shifts_staff_members_staff_member_id");
-
                     b.HasOne("Rotadesk.Domain.Business", null)
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_shifts_businesses_tenant_id");
+
+                    b.HasOne("Rotadesk.Domain.RotaWeek", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "RotaWeekId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_shifts_rota_weeks_tenant_id_rota_week_id");
+
+                    b.HasOne("Rotadesk.Domain.StaffMember", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "StaffMemberId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_shifts_staff_members_tenant_id_staff_member_id");
                 });
 
             modelBuilder.Entity("Rotadesk.Domain.StaffMember", b =>
@@ -354,39 +356,43 @@ namespace Rotadesk.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Rotadesk.Domain.SwapRequest", b =>
                 {
-                    b.HasOne("Rotadesk.Domain.StaffMember", null)
-                        .WithMany()
-                        .HasForeignKey("ColleagueId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_swap_requests_staff_members_colleague_id");
-
-                    b.HasOne("Rotadesk.Domain.Shift", null)
-                        .WithMany()
-                        .HasForeignKey("OfferedShiftId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_swap_requests_shifts_offered_shift_id");
-
-                    b.HasOne("Rotadesk.Domain.StaffMember", null)
-                        .WithMany()
-                        .HasForeignKey("RequesterId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_swap_requests_staff_members_requester_id");
-
-                    b.HasOne("Rotadesk.Domain.Shift", null)
-                        .WithMany()
-                        .HasForeignKey("ReturnShiftId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_swap_requests_shifts_return_shift_id");
-
                     b.HasOne("Rotadesk.Domain.Business", null)
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_swap_requests_businesses_tenant_id");
+
+                    b.HasOne("Rotadesk.Domain.StaffMember", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ColleagueId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_swap_requests_staff_members_tenant_id_colleague_id");
+
+                    b.HasOne("Rotadesk.Domain.Shift", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "OfferedShiftId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_swap_requests_shifts_tenant_id_offered_shift_id");
+
+                    b.HasOne("Rotadesk.Domain.StaffMember", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "RequesterId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_swap_requests_staff_members_tenant_id_requester_id");
+
+                    b.HasOne("Rotadesk.Domain.Shift", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ReturnShiftId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_swap_requests_shifts_tenant_id_return_shift_id");
                 });
 #pragma warning restore 612, 618
         }

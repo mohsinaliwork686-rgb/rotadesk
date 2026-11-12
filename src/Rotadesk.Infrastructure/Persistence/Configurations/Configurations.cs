@@ -25,8 +25,9 @@ internal sealed class StaffMemberConfiguration : IEntityTypeConfiguration<StaffM
         builder.Property(s => s.Role).HasConversion<string>().HasMaxLength(16);
         builder.HasIndex(s => new { s.TenantId, s.Email }).IsUnique();
 
-        // Lets a sign-in account point at its staff member and business together, so the two can't disagree.
-        builder.HasIndex(s => new { s.TenantId, s.Id }).IsUnique();
+        // Rows that point at a staff member point at (business, id), so the database refuses a link to another
+        // business's staff member. Sign-in accounts point at it the same way.
+        builder.HasAlternateKey(s => new { s.TenantId, s.Id });
         builder.Ignore(s => s.IsManager);
     }
 }
@@ -37,6 +38,7 @@ internal sealed class RotaWeekConfiguration : IEntityTypeConfiguration<RotaWeek>
     {
         builder.HasOne<Business>().WithMany().HasForeignKey(r => r.TenantId);
         builder.HasIndex(r => new { r.TenantId, r.WeekStart }).IsUnique();
+        builder.HasAlternateKey(r => new { r.TenantId, r.Id });
         builder.Ignore(r => r.IsPublished);
     }
 }
@@ -46,8 +48,15 @@ internal sealed class ShiftConfiguration : IEntityTypeConfiguration<Shift>
     public void Configure(EntityTypeBuilder<Shift> builder)
     {
         builder.HasOne<Business>().WithMany().HasForeignKey(s => s.TenantId);
-        builder.HasOne<RotaWeek>().WithMany().HasForeignKey(s => s.RotaWeekId).OnDelete(DeleteBehavior.Cascade);
-        builder.HasOne<StaffMember>().WithMany().HasForeignKey(s => s.StaffMemberId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasAlternateKey(s => new { s.TenantId, s.Id });
+        builder.HasOne<RotaWeek>().WithMany()
+            .HasForeignKey(s => new { s.TenantId, s.RotaWeekId }).HasPrincipalKey(r => new { r.TenantId, r.Id })
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // An unassigned shift has no staff member, and PostgreSQL skips a composite key with a null in it.
+        builder.HasOne<StaffMember>().WithMany()
+            .HasForeignKey(s => new { s.TenantId, s.StaffMemberId }).HasPrincipalKey(m => new { m.TenantId, m.Id })
+            .OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(s => new { s.TenantId, s.StaffMemberId, s.Start });
         builder.ToTable(t => t.HasCheckConstraint("ck_shifts_end_after_start", "\"end\" > start"));
         builder.Ignore(s => s.Length);
@@ -63,7 +72,9 @@ internal sealed class AvailabilityConfiguration : IEntityTypeConfiguration<Avail
     {
         builder.ToTable("availability");
         builder.HasOne<Business>().WithMany().HasForeignKey(a => a.TenantId);
-        builder.HasOne<StaffMember>().WithMany().HasForeignKey(a => a.StaffMemberId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<StaffMember>().WithMany()
+            .HasForeignKey(a => new { a.TenantId, a.StaffMemberId }).HasPrincipalKey(m => new { m.TenantId, m.Id })
+            .OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(a => new { a.TenantId, a.StaffMemberId });
         builder.ToTable(t => t.HasCheckConstraint("ck_availability_to_after_from", "\"to\" > \"from\""));
     }
@@ -74,10 +85,18 @@ internal sealed class SwapRequestConfiguration : IEntityTypeConfiguration<SwapRe
     public void Configure(EntityTypeBuilder<SwapRequest> builder)
     {
         builder.HasOne<Business>().WithMany().HasForeignKey(s => s.TenantId);
-        builder.HasOne<StaffMember>().WithMany().HasForeignKey(s => s.RequesterId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<StaffMember>().WithMany().HasForeignKey(s => s.ColleagueId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Shift>().WithMany().HasForeignKey(s => s.OfferedShiftId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<Shift>().WithMany().HasForeignKey(s => s.ReturnShiftId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<StaffMember>().WithMany()
+            .HasForeignKey(s => new { s.TenantId, s.RequesterId }).HasPrincipalKey(m => new { m.TenantId, m.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<StaffMember>().WithMany()
+            .HasForeignKey(s => new { s.TenantId, s.ColleagueId }).HasPrincipalKey(m => new { m.TenantId, m.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Shift>().WithMany()
+            .HasForeignKey(s => new { s.TenantId, s.OfferedShiftId }).HasPrincipalKey(m => new { m.TenantId, m.Id })
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Shift>().WithMany()
+            .HasForeignKey(s => new { s.TenantId, s.ReturnShiftId }).HasPrincipalKey(m => new { m.TenantId, m.Id })
+            .OnDelete(DeleteBehavior.Restrict);
         builder.Property(s => s.Status).HasConversion<string>().HasMaxLength(16);
         builder.HasIndex(s => new { s.TenantId, s.Status });
         builder.Ignore(s => s.IsFinal);
