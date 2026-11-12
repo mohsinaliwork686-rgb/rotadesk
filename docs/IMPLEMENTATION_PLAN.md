@@ -295,3 +295,26 @@ learn and configure, and the built-in pieces cover what this app needs.
   database refuse it as well.
 - **For deploy day:** the cookie is `HttpOnly` and `SameSite=Lax`. Behind the host's HTTPS proxy it needs the forwarded
   headers set, so the app sees HTTPS and marks the cookie `Secure`.
+
+**Thursday 12 November.**
+
+- **The database refuses links between businesses.** Every foreign key between two business-owned rows is now on
+  (business, id): shifts to their week and staff member, availability to its staff member, swaps to both people and
+  both shifts. Staff members, weeks and shifts carry an alternate key on (business, id) for this. A model test makes
+  it a rule for any new table, and database tests save cross-business rows through the system context, which skips
+  the filters and the write guard, and get a foreign key violation. Wednesday's unique index on staff members is
+  turned into the alternate key in place (`UNIQUE USING INDEX`), because the accounts' foreign key already depends on
+  it; a migration test upgrades a database that has accounts. One more effect: EF now treats the business as part of
+  those rows' keys, so it refuses to move one to another business before the write guard even sees it.
+- **Swaps go through the state machine,** and the rules are checked when a swap is asked for, so a swap that can't
+  work is refused straight away, and again at approval. Only shifts on a published rota can be swapped, and a shift
+  can be in one open swap at a time. Staff see the swaps they're part of; anyone else's is a 404. The right request
+  from the wrong person (accepting someone else's swap, deciding your own) is a 403. The domain gained
+  `EnsureCanApprove`, so the API answers "not yet accepted" or "your own swap" before it checks the rules.
+- **The concurrency test is deterministic.** A test-only interceptor changes the swap's row on another connection just
+  before an approval saves, as a second manager would. The approval's `xmin` no longer matches, and the answer is a
+  409 with nothing moved. Ten simultaneous approvals are tested too: exactly one wins.
+- **Every endpoint is in one table** in the API tests: who may call it, and what kind of id it takes. A test checks
+  the table against the app's endpoints, so a new endpoint can't skip the 401, 403 and cross-business 404 checks.
+- **The API tests use a fixed clock,** 10 November 09:00 UTC like the domain tests, so the swap tests don't start
+  failing once the test week is in the past.
