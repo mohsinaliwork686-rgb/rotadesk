@@ -242,4 +242,33 @@ public class SwapRequestTests
                 break;
         }
     }
+
+    [Fact]
+    public void Ensure_can_approve_says_no_until_the_colleague_has_accepted()
+    {
+        var swap = SwapRequest.Create(_amira.Id, _ben.Id, _amirasShift, null, Now);
+
+        Assert.Equal("swap.illegal-transition", Assert.Throws<DomainException>(() => swap.EnsureCanApprove(_manager)).Code);
+    }
+
+    [Fact]
+    public void Ensure_can_approve_refuses_a_manager_who_is_part_of_the_swap()
+    {
+        var managersShift = ShiftFor(_manager, Monday, 9, 17);
+        var swap = SwapRequest.Create(_manager.Id, _ben.Id, managersShift, null, Now);
+        swap.Accept(_ben.Id, Now);
+
+        Assert.Equal("swap.own-swap", Assert.Throws<DomainException>(() => swap.EnsureCanApprove(_manager)).Code);
+    }
+
+    [Fact]
+    public void Ensure_can_approve_passes_for_an_accepted_swap_and_an_outside_manager()
+    {
+        var swap = SwapRequest.Create(_amira.Id, _ben.Id, _amirasShift, null, Now);
+        swap.Accept(_ben.Id, Now);
+
+        swap.EnsureCanApprove(_manager);
+
+        Assert.Equal(SwapStatus.Accepted, swap.Status);
+    }
 }

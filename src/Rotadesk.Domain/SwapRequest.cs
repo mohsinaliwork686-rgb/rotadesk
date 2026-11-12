@@ -117,6 +117,16 @@ public sealed class SwapRequest : ITenantOwned
     }
 
     /// <summary>
+    /// Throws unless this manager may approve the swap now: it has been accepted, and they aren't part of it. Lets a
+    /// caller answer that before it checks the rota rules, which are the slower question.
+    /// </summary>
+    public void EnsureCanApprove(StaffMember manager)
+    {
+        RequireStatus(SwapStatus.Accepted, "approve");
+        RequireDecider(manager);
+    }
+
+    /// <summary>
     /// Approves the swap and moves the shifts. Check the rota rules first with <see cref="SwapApproval.Check"/>:
     /// this only checks that the shifts still belong to the people they belonged to when the swap was asked for.
     /// </summary>

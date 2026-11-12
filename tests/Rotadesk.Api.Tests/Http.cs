@@ -12,6 +12,9 @@ internal static class Http
     /// <summary>The Monday the tests schedule in. London is on GMT then, so local time and UTC are the same.</summary>
     public static readonly DateOnly Monday = new(2026, 11, 16);
 
+    /// <summary>The app's "now" in the tests: the Tuesday before that week, 09:00 UTC, as in the domain tests.</summary>
+    public static readonly DateTimeOffset Now = new(2026, 11, 10, 9, 0, 0, TimeSpan.Zero);
+
     public static DateTimeOffset At(DateOnly day, int hour, int minute = 0) =>
         new(day.Year, day.Month, day.Day, hour, minute, 0, TimeSpan.Zero);
 

@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 using Testcontainers.PostgreSql;
 
@@ -33,12 +35,12 @@ public sealed class ApiFixture : IAsyncLifetime
     }
 
     /// <summary>A client with its own cookies, like a separate browser.</summary>
-    public HttpClient NewClient() =>
-        Factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+    public HttpClient NewClient(WebApplicationFactory<Program>? factory = null) =>
+        (factory ?? Factory).CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
 
-    public async Task<HttpClient> SignInAsync(TestPerson person)
+    public async Task<HttpClient> SignInAsync(TestPerson person, WebApplicationFactory<Program>? factory = null)
     {
-        var client = NewClient();
+        var client = NewClient(factory);
         var response = await client.PostJsonAsync("/api/auth/sign-in", new { email = person.Email, password = person.Password });
         Assert.Equal(System.Net.HttpStatusCode.NoContent, response.StatusCode);
         return client;
@@ -55,5 +57,13 @@ public sealed class RotadeskFactory(string connectionString, bool demo) : WebApp
         builder.UseSetting("ConnectionStrings:Rotadesk", connectionString);
         builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("Demo:Enabled", demo ? "true" : "false");
+
+        // The tests schedule in a fixed week, so they need a fixed "now" or they would start failing once it passed.
+        builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(new FixedClock(Http.Now)));
     }
+}
+
+public sealed class FixedClock(DateTimeOffset now) : TimeProvider
+{
+    public override DateTimeOffset GetUtcNow() => now;
 }

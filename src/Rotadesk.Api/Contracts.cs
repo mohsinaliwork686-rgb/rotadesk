@@ -39,3 +39,22 @@ public sealed record AvailabilityWindow(DayOfWeek Day, string From, string To);
 public sealed record DemoAccount(string Email, string Name, StaffRole Role, string Business);
 
 public sealed record DemoSignInRequest(string? Email);
+
+public sealed record CreateSwapRequest(Guid OfferedShiftId, Guid ColleagueId, Guid? ReturnShiftId);
+
+public sealed record SwapPerson(Guid Id, string Name);
+
+public sealed record SwapShift(Guid Id, DateTimeOffset Start, DateTimeOffset End);
+
+public sealed record SwapResponse(
+    Guid Id,
+    SwapStatus Status,
+    SwapPerson Requester,
+    SwapPerson Colleague,
+    SwapShift Offered,
+    SwapShift? Return,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? RespondedAt,
+    DateTimeOffset? DecidedAt,
+    string? DecidedBy,
+    IReadOnlyList<string> Warnings);

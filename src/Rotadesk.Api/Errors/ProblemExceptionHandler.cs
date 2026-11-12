@@ -18,6 +18,7 @@ internal sealed class ProblemExceptionHandler(IProblemDetailsService problems) :
         (int Status, string Code, string Title)? answer = exception switch
         {
             DomainException e when IsBadInput(e.Code) => (StatusCodes.Status400BadRequest, e.Code, e.Message),
+            DomainException e when IsWrongPerson(e.Code) => (StatusCodes.Status403Forbidden, e.Code, e.Message),
             DomainException e => (StatusCodes.Status409Conflict, e.Code, e.Message),
             DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "concurrency", "Someone else changed this first. Reload and try again."),
             DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } } =>
@@ -39,6 +40,9 @@ internal sealed class ProblemExceptionHandler(IProblemDetailsService problems) :
             ProblemDetails = { Status = a.Status, Title = a.Title, Extensions = { ["code"] = a.Code } },
         });
     }
+
+    /// <summary>The right request from the wrong person: someone else's swap to accept, or a manager deciding their own.</summary>
+    private static bool IsWrongPerson(string code) => code is "swap.wrong-person" or "swap.not-a-manager" or "swap.own-swap";
 
     /// <summary>Input that can never be right, as opposed to a rule that refuses it now.</summary>
     private static bool IsBadInput(string code) =>

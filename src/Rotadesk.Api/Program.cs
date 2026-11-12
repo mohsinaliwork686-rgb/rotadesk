@@ -19,6 +19,8 @@ builder.Services.AddScoped<ITenantContext, ClaimsTenant>();
 builder.Services.AddScoped<CurrentMember>();
 builder.Services.AddScoped<Scheduler>();
 builder.Services.AddScoped<RotaReader>();
+builder.Services.AddScoped<SwapChecker>();
+builder.Services.AddScoped<SwapContext>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddRotadeskSignIn();
 builder.Services.AddProblemDetails();
@@ -50,6 +52,7 @@ api.MapAuthEndpoints();
 api.MapStaffEndpoints();
 api.MapWeekEndpoints();
 api.MapShiftEndpoints();
+api.MapSwapEndpoints();
 api.MapAvailabilityEndpoints();
 if (demo)
 {
