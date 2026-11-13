@@ -318,3 +318,23 @@ learn and configure, and the built-in pieces cover what this app needs.
   the table against the app's endpoints, so a new endpoint can't skip the 401, 403 and cross-business 404 checks.
 - **The API tests use a fixed clock,** 10 November 09:00 UTC like the domain tests, so the swap tests don't start
   failing once the test week is in the past.
+
+**Friday 13 November.**
+
+- **The outbox claims a message before sending it.** Claiming counts the attempt and sets a five-minute lease, and
+  `xmin` on the row means two workers that read the same message can't both claim it. A worker that stops mid-send
+  leaves the lease to run out, and the message goes again: at least once, never lost. `FOR UPDATE SKIP LOCKED` would
+  scale better with many workers; that, and exactly-once delivery, are `hookline`'s next week.
+- **Backoff is 30 seconds, then 1, 2 and 4 minutes,** and the fifth failure gives up, keeping the error.
+- **The demo inbox is a table,** written by the demo's sender through the email's own business, and each person sees
+  their own at `/api/inbox` (demo only). It's a delivery log, not a view of the outbox, so a message sent twice after
+  a crash shows twice with the same message id. Without the demo, emails go to the log.
+- **Which changes email whom:** a published week (each person with a shift, with their shifts), a swap asked for (the
+  colleague), accepted (the managers who aren't part of it), approved or rejected (both people), and a shift added,
+  changed or removed in a published week (whoever had it and whoever has it now). Changes to an unpublished week email
+  nobody.
+- **"Only the outbox crosses businesses" is a test** that reads the source: nothing calls `IgnoreQueryFilters`, and the
+  system context appears only in the outbox processor, the migrations and the design-time factory. The worker reads
+  through the system context rather than `IgnoreQueryFilters`, as Tuesday's notes say.
+- **Tests decide when emails go out.** The test app runs with the worker off, and one test turns it on to see a rota
+  arrive in the demo inbox.
