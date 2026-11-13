@@ -32,12 +32,18 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public async ValueTask DisposeAsync() => await _container.DisposeAsync();
 
-    public RotadeskDbContext NewContext(ITenantContext tenant)
+    /// <summary>The options the app uses, with the write guard, for code that makes its own contexts.</summary>
+    public DbContextOptions<RotadeskDbContext> Options
     {
-        var options = new DbContextOptionsBuilder<RotadeskDbContext>();
-        DependencyInjection.Configure(options, ConnectionString).AddInterceptors(new TenantGuardInterceptor());
-        return new RotadeskDbContext(options.Options, tenant);
+        get
+        {
+            var options = new DbContextOptionsBuilder<RotadeskDbContext>();
+            DependencyInjection.Configure(options, ConnectionString).AddInterceptors(new TenantGuardInterceptor());
+            return options.Options;
+        }
     }
+
+    public RotadeskDbContext NewContext(ITenantContext tenant) => new(Options, tenant);
 
     public RotadeskDbContext For(Guid tenantId) => NewContext(new FixedTenant(tenantId));
 

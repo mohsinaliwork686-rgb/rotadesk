@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 using Rotadesk.Domain;
+using Rotadesk.Infrastructure.Outbox;
 
 namespace Rotadesk.Infrastructure.Persistence.Configurations;
 
@@ -101,5 +102,34 @@ internal sealed class SwapRequestConfiguration : IEntityTypeConfiguration<SwapRe
         builder.HasIndex(s => new { s.TenantId, s.Status });
         builder.Ignore(s => s.IsFinal);
         builder.Property<uint>("Version").IsRowVersion();
+    }
+}
+
+internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage>
+{
+    public void Configure(EntityTypeBuilder<OutboxMessage> builder)
+    {
+        builder.HasOne<Business>().WithMany().HasForeignKey(m => m.TenantId);
+        builder.Property(m => m.To).HasMaxLength(320);
+        builder.Property(m => m.Subject).HasMaxLength(300);
+        builder.Property(m => m.LastError).HasMaxLength(2000);
+
+        // The worker's question, "what's due?", only ever looks at unsent messages.
+        builder.HasIndex(m => m.NextAttemptAt).HasFilter("sent_at IS NULL AND failed_at IS NULL");
+
+        // Two workers that read the same message can't both claim it.
+        builder.Property<uint>("Version").IsRowVersion();
+    }
+}
+
+internal sealed class DemoInboxEntryConfiguration : IEntityTypeConfiguration<DemoInboxEntry>
+{
+    public void Configure(EntityTypeBuilder<DemoInboxEntry> builder)
+    {
+        builder.ToTable("demo_inbox");
+        builder.HasOne<Business>().WithMany().HasForeignKey(e => e.TenantId);
+        builder.Property(e => e.To).HasMaxLength(320);
+        builder.Property(e => e.Subject).HasMaxLength(300);
+        builder.HasIndex(e => new { e.TenantId, e.To, e.DeliveredAt });
     }
 }

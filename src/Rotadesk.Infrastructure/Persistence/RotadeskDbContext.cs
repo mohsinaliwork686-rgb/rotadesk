@@ -4,6 +4,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 
 using Rotadesk.Domain;
+using Rotadesk.Infrastructure.Outbox;
 
 namespace Rotadesk.Infrastructure.Persistence;
 
@@ -20,6 +21,10 @@ public sealed class RotadeskDbContext(DbContextOptions<RotadeskDbContext> option
     public DbSet<Availability> Availability => Set<Availability>();
 
     public DbSet<SwapRequest> SwapRequests => Set<SwapRequest>();
+
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
+    public DbSet<DemoInboxEntry> DemoInbox => Set<DemoInboxEntry>();
 
     /// <summary>Read by the query filters on every query, so it always reflects this context's tenant.</summary>
     internal Guid? CurrentTenantId => tenant.TenantId;
