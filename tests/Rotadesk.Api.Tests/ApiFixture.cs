@@ -1,7 +1,12 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+
+using Rotadesk.Infrastructure;
+using Rotadesk.Infrastructure.Outbox;
+using Rotadesk.Infrastructure.Persistence;
 
 using Testcontainers.PostgreSql;
 
@@ -47,6 +52,15 @@ public sealed class ApiFixture : IAsyncLifetime
     }
 
     public Task<TestBusiness> CreateBusinessAsync(string timeZone = "Europe/London") => TestBusiness.CreateAsync(this, timeZone);
+
+    /// <summary>Every email queued for this business, sent or not, oldest first.</summary>
+    public async Task<List<OutboxMessage>> OutboxAsync(Guid businessId)
+    {
+        await using var scope = Factory.Services.CreateAsyncScope();
+        var options = scope.ServiceProvider.GetRequiredService<DbContextOptions<RotadeskDbContext>>();
+        await using var db = new RotadeskDbContext(options, new FixedTenant(businessId));
+        return await db.OutboxMessages.AsNoTracking().OrderBy(m => m.CreatedAt).ThenBy(m => m.To).ToListAsync(TestContext.Current.CancellationToken);
+    }
 }
 
 public sealed class RotadeskFactory(string connectionString, bool demo) : WebApplicationFactory<Program>
@@ -57,6 +71,9 @@ public sealed class RotadeskFactory(string connectionString, bool demo) : WebApp
         builder.UseSetting("ConnectionStrings:Rotadesk", connectionString);
         builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("Demo:Enabled", demo ? "true" : "false");
+
+        // The background worker is off, so a test decides when emails go out; one test turns it on to see it work.
+        builder.UseSetting("Outbox:Enabled", "false");
 
         // The tests schedule in a fixed week, so they need a fixed "now" or they would start failing once it passed.
         builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(new FixedClock(Http.Now)));

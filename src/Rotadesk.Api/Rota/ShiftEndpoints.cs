@@ -24,6 +24,7 @@ internal static class ShiftEndpoints
         RotadeskDbContext db,
         RotaReader rota,
         Scheduler scheduler,
+        Notifications notifications,
         CancellationToken cancellationToken)
     {
         RequireTimes(request);
@@ -34,10 +35,15 @@ internal static class ShiftEndpoints
         var rotaWeek = await rota.FindOrAddWeekAsync(manager.TenantId, Week.Containing(request.Start, zone).Start, cancellationToken);
         var shift = new Shift(manager.TenantId, rotaWeek.Id, request.Start, request.End);
 
-        var (problem, warnings) = await AssignAsync(shift, request.StaffMemberId, db, scheduler, zone, cancellationToken);
+        var (problem, warnings, person) = await AssignAsync(shift, request.StaffMemberId, db, scheduler, zone, cancellationToken);
         if (problem is not null)
         {
             return problem;
+        }
+
+        if (rotaWeek.IsPublished)
+        {
+            notifications.PublishedShiftChanged(null, null, person, (shift.Start, shift.End), zone);
         }
 
         db.Shifts.Add(shift);
@@ -51,6 +57,7 @@ internal static class ShiftEndpoints
         CurrentMember current,
         RotadeskDbContext db,
         Scheduler scheduler,
+        Notifications notifications,
         CancellationToken cancellationToken)
     {
         RequireTimes(request);
@@ -67,18 +74,31 @@ internal static class ShiftEndpoints
             return Problems.Conflict("shift.other-week", "A shift stays in its week. Delete it and add it to the other week instead.");
         }
 
+        var was = (shift.Start, shift.End);
+        var beforeId = shift.StaffMemberId;
         shift.Reschedule(request.Start, request.End);
-        var (problem, warnings) = await AssignAsync(shift, request.StaffMemberId, db, scheduler, zone, cancellationToken);
+        var (problem, warnings, person) = await AssignAsync(shift, request.StaffMemberId, db, scheduler, zone, cancellationToken);
         if (problem is not null)
         {
             return problem;
+        }
+
+        if (rotaWeek.IsPublished)
+        {
+            var before = beforeId is { } b ? await db.StaffMembers.SingleAsync(s => s.Id == b, cancellationToken) : null;
+            notifications.PublishedShiftChanged(before, was, person, (shift.Start, shift.End), zone);
         }
 
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(await ToResponseAsync(shift, warnings, db, cancellationToken));
     }
 
-    private static async Task<IResult> DeleteAsync(Guid id, RotadeskDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> DeleteAsync(
+        Guid id,
+        CurrentMember current,
+        RotadeskDbContext db,
+        Notifications notifications,
+        CancellationToken cancellationToken)
     {
         var shift = await db.Shifts.SingleOrDefaultAsync(s => s.Id == id, cancellationToken);
         if (shift is null)
@@ -91,6 +111,14 @@ internal static class ShiftEndpoints
             return Problems.Conflict("shift.in-swap", "This shift is part of a swap request, so it can't be deleted.");
         }
 
+        var rotaWeek = await db.RotaWeeks.SingleAsync(r => r.Id == shift.RotaWeekId, cancellationToken);
+        if (rotaWeek.IsPublished && shift.StaffMemberId is { } staffId)
+        {
+            var zone = (await current.GetBusinessAsync(cancellationToken)).TimeZone;
+            var person = await db.StaffMembers.SingleAsync(s => s.Id == staffId, cancellationToken);
+            notifications.PublishedShiftChanged(person, (shift.Start, shift.End), null, null, zone);
+        }
+
         db.Shifts.Remove(shift);
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
@@ -100,7 +128,7 @@ internal static class ShiftEndpoints
     /// Gives the shift to someone, if the rules allow it. Another business's staff member isn't found, so it's a 404
     /// rather than a sign that the id exists.
     /// </summary>
-    private static async Task<(IResult? Problem, IReadOnlyList<string> Warnings)> AssignAsync(
+    private static async Task<(IResult? Problem, IReadOnlyList<string> Warnings, StaffMember? Person)> AssignAsync(
         Shift shift,
         Guid? staffMemberId,
         RotadeskDbContext db,
@@ -111,23 +139,23 @@ internal static class ShiftEndpoints
         if (staffMemberId is not { } id)
         {
             shift.AssignTo(null);
-            return (null, []);
+            return (null, [], null);
         }
 
         var person = await db.StaffMembers.SingleOrDefaultAsync(s => s.Id == id, cancellationToken);
         if (person is null)
         {
-            return (Problems.NotFound("Staff member"), []);
+            return (Problems.NotFound("Staff member"), [], null);
         }
 
         var check = await scheduler.CheckAsync(person, shift.Id, shift.Start, shift.End, zone, null, cancellationToken);
         if (!check.IsAllowed)
         {
-            return (Problems.RuleBroken(check), []);
+            return (Problems.RuleBroken(check), [], null);
         }
 
         shift.AssignTo(id);
-        return (null, check.Warnings);
+        return (null, check.Warnings, person);
     }
 
     private static void RequireTimes(ShiftRequest request)

@@ -34,6 +34,7 @@ public class EndpointSuiteTests(ApiFixture fixture)
         [("GET", "/api/auth/me")] = new(Policies.Member),
         [("GET", "/api/demo/accounts")] = new(Public),
         [("POST", "/api/demo/sign-in")] = new(Public),
+        [("GET", "/api/inbox")] = new(Policies.Member),
         [("GET", "/api/staff")] = new(Policies.Member),
         [("POST", "/api/staff")] = new(Policies.Owner, Body: () => new { name = "Cara", email = $"cara.{Guid.NewGuid():N}@example.test", role = "Staff" }),
         [("PATCH", "/api/staff/{id:guid}")] = new(Policies.Owner, Id.Staff, () => new { weeklyLimitHours = 30 }),

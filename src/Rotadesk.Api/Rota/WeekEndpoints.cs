@@ -30,6 +30,7 @@ internal static class WeekEndpoints
         CurrentMember current,
         RotadeskDbContext db,
         RotaReader rota,
+        Notifications notifications,
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
@@ -39,6 +40,7 @@ internal static class WeekEndpoints
 
         var rotaWeek = await rota.FindOrAddWeekAsync(manager.TenantId, week.Start, cancellationToken);
         rotaWeek.Publish(clock.GetUtcNow());
+        await notifications.RotaPublishedAsync(rotaWeek, zone, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
         return Results.Ok(await rota.ReadAsync(week, manager, zone, cancellationToken));

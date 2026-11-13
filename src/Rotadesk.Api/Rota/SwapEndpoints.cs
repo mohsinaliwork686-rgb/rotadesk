@@ -23,13 +23,13 @@ internal static class SwapEndpoints
         swaps.MapGet("/{id:guid}", GetAsync).RequireAuthorization(Policies.Member);
         swaps.MapPost("", CreateAsync).RequireAuthorization(Policies.Member);
         swaps.MapPost("/{id:guid}/accept", (Guid id, SwapContext context, CancellationToken ct) =>
-            context.ActAsync(id, (swap, me, now) => swap.Accept(me.Id, now), ct)).RequireAuthorization(Policies.Member);
+            context.ActAsync(id, (swap, me, now) => swap.Accept(me.Id, now), ct, context.TellManagersAsync)).RequireAuthorization(Policies.Member);
         swaps.MapPost("/{id:guid}/decline", (Guid id, SwapContext context, CancellationToken ct) =>
             context.ActAsync(id, (swap, me, now) => swap.Decline(me.Id, now), ct)).RequireAuthorization(Policies.Member);
         swaps.MapPost("/{id:guid}/cancel", (Guid id, SwapContext context, CancellationToken ct) =>
             context.ActAsync(id, (swap, me, now) => swap.Cancel(me.Id, now), ct)).RequireAuthorization(Policies.Member);
         swaps.MapPost("/{id:guid}/reject", (Guid id, SwapContext context, CancellationToken ct) =>
-            context.ActAsync(id, (swap, me, now) => swap.Reject(me, now), ct)).RequireAuthorization(Policies.Manager);
+            context.ActAsync(id, (swap, me, now) => swap.Reject(me, now), ct, context.TellBothRejectedAsync)).RequireAuthorization(Policies.Manager);
         swaps.MapPost("/{id:guid}/approve", ApproveAsync).RequireAuthorization(Policies.Manager);
     }
 
@@ -61,6 +61,7 @@ internal static class SwapEndpoints
         RotadeskDbContext db,
         SwapChecker checker,
         SwapContext context,
+        Notifications notifications,
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
@@ -100,6 +101,7 @@ internal static class SwapEndpoints
             return Problems.RuleBroken(check);
         }
 
+        notifications.SwapRequested(requester, colleague, offered, returned, zone);
         db.SwapRequests.Add(swap);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/api/swaps/{swap.Id}", await context.ToResponseAsync(swap, check.Warnings, cancellationToken));
@@ -116,6 +118,7 @@ internal static class SwapEndpoints
         RotadeskDbContext db,
         SwapChecker checker,
         SwapContext context,
+        Notifications notifications,
         TimeProvider clock,
         CancellationToken cancellationToken)
     {
@@ -140,13 +143,14 @@ internal static class SwapEndpoints
         }
 
         swap.Approve(manager, offered, returned, clock.GetUtcNow());
+        notifications.SwapDecided(true, manager, requester, colleague, offered, returned, zone);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(await context.ToResponseAsync(swap, check.Warnings, cancellationToken));
     }
 }
 
 /// <summary>What the swap endpoints share: who can see which swaps, acting on one, and the answers.</summary>
-internal sealed class SwapContext(CurrentMember current, RotadeskDbContext db, TimeProvider clock)
+internal sealed class SwapContext(CurrentMember current, RotadeskDbContext db, Notifications notifications, TimeProvider clock)
 {
     /// <summary>A manager sees every swap in the business; anyone else, the swaps they're part of.</summary>
     public async Task<IQueryable<SwapRequest>> VisibleAsync(CancellationToken cancellationToken)
@@ -157,7 +161,12 @@ internal sealed class SwapContext(CurrentMember current, RotadeskDbContext db, T
             : db.SwapRequests.Where(s => s.RequesterId == viewer.Id || s.ColleagueId == viewer.Id);
     }
 
-    public async Task<IResult> ActAsync(Guid id, Action<SwapRequest, StaffMember, DateTimeOffset> act, CancellationToken cancellationToken)
+    /// <param name="notify">Queues the step's emails, after the move and before the save, so both commit together.</param>
+    public async Task<IResult> ActAsync(
+        Guid id,
+        Action<SwapRequest, StaffMember, DateTimeOffset> act,
+        CancellationToken cancellationToken,
+        Func<SwapRequest, StaffMember, CancellationToken, Task>? notify = null)
     {
         var me = await current.GetAsync(cancellationToken);
         var swap = await (await VisibleAsync(cancellationToken)).SingleOrDefaultAsync(s => s.Id == id, cancellationToken);
@@ -167,8 +176,36 @@ internal sealed class SwapContext(CurrentMember current, RotadeskDbContext db, T
         }
 
         act(swap, me, clock.GetUtcNow());
+        if (notify is not null)
+        {
+            await notify(swap, me, cancellationToken);
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(await ToResponseAsync(swap, [], cancellationToken));
+    }
+
+    public async Task TellManagersAsync(SwapRequest swap, StaffMember me, CancellationToken cancellationToken)
+    {
+        var (requester, colleague, offered, returned, zone) = await PartiesAsync(swap, cancellationToken);
+        await notifications.SwapAcceptedAsync(requester, colleague, offered, returned, zone, cancellationToken);
+    }
+
+    public async Task TellBothRejectedAsync(SwapRequest swap, StaffMember manager, CancellationToken cancellationToken)
+    {
+        var (requester, colleague, offered, returned, zone) = await PartiesAsync(swap, cancellationToken);
+        notifications.SwapDecided(false, manager, requester, colleague, offered, returned, zone);
+    }
+
+    private async Task<(StaffMember Requester, StaffMember Colleague, Shift Offered, Shift? Returned, TimeZoneInfo Zone)> PartiesAsync(
+        SwapRequest swap,
+        CancellationToken cancellationToken)
+    {
+        var requester = await db.StaffMembers.SingleAsync(s => s.Id == swap.RequesterId, cancellationToken);
+        var colleague = await db.StaffMembers.SingleAsync(s => s.Id == swap.ColleagueId, cancellationToken);
+        var offered = await db.Shifts.SingleAsync(s => s.Id == swap.OfferedShiftId, cancellationToken);
+        var returned = swap.ReturnShiftId is { } returnId ? await db.Shifts.SingleAsync(s => s.Id == returnId, cancellationToken) : null;
+        return (requester, colleague, offered, returned, (await current.GetBusinessAsync(cancellationToken)).TimeZone);
     }
 
     public async Task<SwapResponse> ToResponseAsync(SwapRequest swap, IReadOnlyList<string> warnings, CancellationToken cancellationToken) =>
