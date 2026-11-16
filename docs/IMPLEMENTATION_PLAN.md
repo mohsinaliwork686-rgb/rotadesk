@@ -338,3 +338,23 @@ learn and configure, and the built-in pieces cover what this app needs.
   through the system context rather than `IgnoreQueryFilters`, as Tuesday's notes say.
 - **Tests decide when emails go out.** The test app runs with the worker off, and one test turns it on to see a rota
   arrive in the demo inbox.
+
+**Monday 16 November.**
+
+- **The front end is React and TypeScript, built with Vite, in `web/`.** All the logic lives in `web/src/lib` with
+  no React in it: the API client, the time helpers, the rota and the availability helpers, each with Vitest tests.
+  The pages call those and draw. Page tests render the real app in jsdom and fake only `fetch`.
+- **Times are on the business's clock, never the browser's.** A manager in Karachi editing a London café's rota
+  sees and types London times. The helpers convert through `Intl` with the business's zone, and the tests run with
+  the machine set to Auckland, so a helper that used the browser's zone fails. When the clocks go back, a time that
+  happens twice means the first; a time the clocks skip moves forward half an hour at a time, the rule the API uses
+  when it copies a week.
+- **An end at or before the start is the next morning,** so 22:00 to 06:00 is a night shift and the API gets two UTC
+  instants eight hours apart (nine over the October change).
+- **The API serves the built app from the same origin,** so the cookie needs no CORS. Vite builds into the API's
+  `wwwroot` (ignored by git), unknown `/api` paths get a ProblemDetails 404 rather than the page, and any other path
+  without a file extension gets `index.html`, never cached; the hashed assets are cached for a year. In development
+  the Vite server forwards `/api` to the API.
+- **A 401 from any call shows the sign-in page,** and the person comes back to the page they asked for, unless
+  someone signed out on purpose, when the next person starts on the rota.
+- **CI has a web job:** lint, tests, then the type-checked build.
