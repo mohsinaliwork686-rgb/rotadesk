@@ -33,3 +33,22 @@ jobs:
       - name: test the domain
         if: matrix.os != 'ubuntu-latest'
         run: dotnet test --project tests/Rotadesk.Domain.Tests --configuration Release --no-build
+
+  web:
+    name: web app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      # Type-checks, then builds into the API's wwwroot, the way the Dockerfile will.
+      - run: npm run build
