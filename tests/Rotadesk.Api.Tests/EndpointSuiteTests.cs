@@ -55,6 +55,10 @@ public class EndpointSuiteTests(ApiFixture fixture)
         [("POST", "/api/swaps/{id:guid}/cancel")] = new(Policies.Member, Id.Swap),
         [("POST", "/api/swaps/{id:guid}/reject")] = new(Policies.Manager, Id.Swap),
         [("POST", "/api/swaps/{id:guid}/approve")] = new(Policies.Manager, Id.Swap),
+
+        // The fallbacks: a 404 for any unknown API path, and the React app for every other page.
+        [("*", "/api/{*path:nonfile}")] = new(Public),
+        [("GET,HEAD", "{*path:nonfile}")] = new(Public),
     };
 
     public static TheoryData<string, string> Protected() => Select(e => e.Access != Public);
@@ -71,7 +75,7 @@ public class EndpointSuiteTests(ApiFixture fixture)
         var actual = fixture.Factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
             .OfType<RouteEndpoint>()
             .Select(e => (
-                Method: e.Metadata.GetMetadata<HttpMethodMetadata>()!.HttpMethods.Single(),
+                Method: e.Metadata.GetMetadata<HttpMethodMetadata>() is { } methods ? string.Join(",", methods.HttpMethods) : "*",
                 // A route mapped as "" inside a group can come out with a trailing slash; routing treats both the same.
                 Pattern: e.RoutePattern.RawText!.TrimEnd('/'),
                 Access: e.Metadata.GetMetadata<IAllowAnonymous>() is not null

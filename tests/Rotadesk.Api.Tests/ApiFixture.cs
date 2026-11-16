@@ -63,7 +63,7 @@ public sealed class ApiFixture : IAsyncLifetime
     }
 }
 
-public sealed class RotadeskFactory(string connectionString, bool demo) : WebApplicationFactory<Program>
+public sealed class RotadeskFactory(string connectionString, bool demo, string? webRoot = null) : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -71,6 +71,10 @@ public sealed class RotadeskFactory(string connectionString, bool demo) : WebApp
         builder.UseSetting("ConnectionStrings:Rotadesk", connectionString);
         builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("Demo:Enabled", demo ? "true" : "false");
+        if (webRoot is not null)
+        {
+            builder.UseWebRoot(webRoot);
+        }
 
         // The background worker is off, so a test decides when emails go out; one test turns it on to see it work.
         builder.UseSetting("Outbox:Enabled", "false");

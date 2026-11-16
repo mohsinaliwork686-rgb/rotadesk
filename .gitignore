@@ -480,3 +480,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# The React app builds into the API's wwwroot; the Dockerfile builds it fresh.
+src/Rotadesk.Api/wwwroot/

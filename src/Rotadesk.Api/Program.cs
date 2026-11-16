@@ -61,6 +61,19 @@ if (demo)
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+
+// The React app, built into wwwroot. Its asset names carry a hash of their contents, so browsers can keep them.
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = file =>
+    {
+        if (file.Context.Request.Path.StartsWithSegments("/assets"))
+        {
+            file.Context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+        }
+    },
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -78,6 +91,16 @@ if (demo)
     api.MapDemoEndpoints();
     api.MapInboxEndpoints();
 }
+
+// A mistyped API path gets a 404 the client can read, not the app's HTML.
+api.MapFallback(() => Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "There's no API endpoint here."));
+
+// Every other path without a file extension is a page of the app, which routes in the browser. index.html is
+// checked on every load, so a new release shows up straight away.
+app.MapFallbackToFile("index.html", new StaticFileOptions
+{
+    OnPrepareResponse = file => file.Context.Response.Headers.CacheControl = "no-cache",
+});
 
 app.Run();
 
