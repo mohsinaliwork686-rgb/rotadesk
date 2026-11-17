@@ -63,7 +63,8 @@ public sealed class ApiFixture : IAsyncLifetime
     }
 }
 
-public sealed class RotadeskFactory(string connectionString, bool demo, string? webRoot = null) : WebApplicationFactory<Program>
+/// <param name="now">The app's clock; the tests' fixed Tuesday unless a test needs another week.</param>
+public sealed class RotadeskFactory(string connectionString, bool demo, string? webRoot = null, DateTimeOffset? now = null) : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -80,7 +81,7 @@ public sealed class RotadeskFactory(string connectionString, bool demo, string? 
         builder.UseSetting("Outbox:Enabled", "false");
 
         // The tests schedule in a fixed week, so they need a fixed "now" or they would start failing once it passed.
-        builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(new FixedClock(Http.Now)));
+        builder.ConfigureTestServices(services => services.AddSingleton<TimeProvider>(new FixedClock(now ?? Http.Now)));
     }
 }
 
