@@ -358,3 +358,28 @@ learn and configure, and the built-in pieces cover what this app needs.
 - **A 401 from any call shows the sign-in page,** and the person comes back to the page they asked for, unless
   someone signed out on purpose, when the next person starts on the rota.
 - **CI has a web job:** lint, tests, then the type-checked build.
+
+**Tuesday 17 November.**
+
+- **The demo keeps its rota current.** Render's free tier sleeps after 15 idle minutes and starts the app again on
+  the next visit, so the seeder runs at every start. Each time, it makes sure both businesses have this week (in
+  their own time zone) published and next week as a draft, filled from a typical week. A week that already has
+  shifts is left alone, so what visitors change stays until the week is over. The first start also adds weekly
+  limits and availability.
+- **The seed shows the features without breaking a rule.** Amira isn't free before 08:00 on Fridays, so one shift
+  carries a warning. Each week has one open shift. Northside has an accepted swap waiting for a manager, and Harbour
+  Books a request waiting for Hira. A test checks every seeded shift against the scheduling rules, and another
+  approves both swaps, which checks the rules again for both people.
+- **Swaps in the front end.** Staff click one of their own shifts on a published rota to offer it to a colleague,
+  maybe for one of theirs; a shift that has started isn't offered, matching the API. The swaps page lists what's
+  waiting and what's finished, and shows only the buttons the state machine allows this person: the colleague
+  answers, the person who asked can cancel, and a manager who isn't part of it decides. That logic lives in
+  `web/src/lib/swaps.ts`, with tests.
+- **The demo inbox in the front end.** The link shows only on the demo. Emails arrive a few seconds after the change,
+  through the outbox worker.
+- **The swap decision email speaks to each person about their own shift** ("your shift", "for yours"), where it used
+  to name the requester to both.
+- **Docker.** One image: Node builds the front end, the .NET SDK publishes the API with it in `wwwroot`, and the
+  ASP.NET runtime image runs it as a non-root user on port 8080. `compose.yaml` adds PostgreSQL and maps the app to
+  `localhost:5180` (8080 is often taken locally). On the very first start EF logs two failed reads of the migrations
+  history table before it creates it; they don't come back on later starts.
