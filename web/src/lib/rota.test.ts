@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Shift, StaffMember } from './api';
-import { draftFromShift, hoursByPerson, openShiftCount, shiftInputFromDraft, shiftTimes, shiftsByDay } from './rota';
+import { draftFromShift, hasStarted, hoursByPerson, openShiftCount, shiftInputFromDraft, shiftTimes, shiftsByDay } from './rota';
 
 const LONDON = 'Europe/London';
 const KARACHI = 'Asia/Karachi';
@@ -125,5 +125,15 @@ describe('shiftInputFromDraft', () => {
       ok: true,
       input: { start: '2026-11-16T20:00:00.000Z', end: '2026-11-17T02:00:00.000Z', staffMemberId: 'amira' },
     });
+  });
+});
+
+describe('hasStarted', () => {
+  it('is true from the moment the shift starts', () => {
+    const monday = shift('2026-11-16T09:00:00Z', '2026-11-16T17:00:00Z');
+
+    expect(hasStarted(monday, new Date('2026-11-16T08:59:00Z'))).toBe(false);
+    expect(hasStarted(monday, new Date('2026-11-16T09:00:00Z'))).toBe(true);
+    expect(hasStarted(monday, new Date('2026-11-17T09:00:00Z'))).toBe(true);
   });
 });

@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 
 import { ShiftEditor } from '../components/ShiftEditor';
+import { SwapOffer } from '../components/SwapOffer';
 import type { Editing } from '../components/ShiftEditor';
 import { api, describeError } from '../lib/api';
 import type { Me, RotaWeek, Shift, StaffMember } from '../lib/api';
-import { hoursByPerson, openShiftCount, shiftTimes, shiftsByDay, draftFromShift } from '../lib/rota';
+import { draftFromShift, hasStarted, hoursByPerson, openShiftCount, shiftTimes, shiftsByDay } from '../lib/rota';
 import {
   addDays,
   formatDay,
@@ -47,10 +48,13 @@ function RotaWeekView({ monday, me }: { monday: LocalDate; me: Me }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Editing | null>(null);
+  const [offering, setOffering] = useState<Shift | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
-    Promise.all([api.week(monday), manager ? api.staff() : Promise.resolve([])]).then(
+    // Everyone gets the staff list: managers to assign shifts, staff to offer one to a colleague.
+    Promise.all([api.week(monday), api.staff()]).then(
       ([loadedWeek, loadedStaff]) => {
         if (live) {
           setWeek(loadedWeek);
@@ -62,7 +66,7 @@ function RotaWeekView({ monday, me }: { monday: LocalDate; me: Me }) {
     return () => {
       live = false;
     };
-  }, [monday, manager]);
+  }, [monday]);
 
   async function act(action: () => Promise<RotaWeek>) {
     setBusy(true);
@@ -133,6 +137,11 @@ function RotaWeekView({ monday, me }: { monday: LocalDate; me: Me }) {
           {actionError}
         </p>
       )}
+      {notice && (
+        <p className="notice-bar" role="status">
+          {notice} <Link to="/swaps">See your swaps</Link>
+        </p>
+      )}
 
       {loadError ? (
         <p className="error" role="alert">
@@ -156,6 +165,14 @@ function RotaWeekView({ monday, me }: { monday: LocalDate; me: Me }) {
                 : undefined
             }
             onEdit={manager ? (shift) => setEditing({ shift, draft: draftFromShift(shift, zone) }) : undefined}
+            onOffer={
+              !manager && week.published
+                ? (shift) => {
+                    setNotice(null);
+                    setOffering(shift);
+                  }
+                : undefined
+            }
           />
           {manager ? <HoursPanel week={week} staff={staff} /> : <MyWeekPanel week={week} me={me} />}
         </div>
@@ -169,6 +186,20 @@ function RotaWeekView({ monday, me }: { monday: LocalDate; me: Me }) {
           staff={staff}
           onClose={() => setEditing(null)}
           onSaved={saved}
+        />
+      )}
+
+      {offering && (
+        <SwapOffer
+          shift={offering}
+          week={week?.shifts ?? []}
+          staff={staff.filter((person) => person.id !== me.staffMemberId)}
+          zone={zone}
+          onClose={() => setOffering(null)}
+          onSent={(colleague) => {
+            setOffering(null);
+            setNotice(`Sent to ${colleague}. They'll get an email.`);
+          }}
         />
       )}
     </div>
@@ -194,9 +225,11 @@ interface WeekGridProps {
   me: Me;
   onAdd?: (date: LocalDate) => void;
   onEdit?: (shift: Shift) => void;
+  /** Staff pick one of their own shifts to offer to a colleague. */
+  onOffer?: (shift: Shift) => void;
 }
 
-function WeekGrid({ week, monday, me, onAdd, onEdit }: WeekGridProps) {
+function WeekGrid({ week, monday, me, onAdd, onEdit, onOffer }: WeekGridProps) {
   const zone = me.business.timeZone;
   const todayDate = today(zone);
 
@@ -212,16 +245,20 @@ function WeekGrid({ week, monday, me, onAdd, onEdit }: WeekGridProps) {
             <p className="empty">No shifts</p>
           ) : (
             <ul className="shifts">
-              {day.shifts.map((shift) => (
-                <li key={shift.id}>
-                  <ShiftCard
-                    shift={shift}
-                    zone={zone}
-                    mine={shift.staffMemberId === me.staffMemberId}
-                    onEdit={onEdit && (() => onEdit(shift))}
-                  />
-                </li>
-              ))}
+              {day.shifts.map((shift) => {
+                const mine = shift.staffMemberId === me.staffMemberId;
+                return (
+                  <li key={shift.id}>
+                    <ShiftCard
+                      shift={shift}
+                      zone={zone}
+                      mine={mine}
+                      onEdit={onEdit && (() => onEdit(shift))}
+                      onOffer={mine && onOffer && !hasStarted(shift) ? () => onOffer(shift) : undefined}
+                    />
+                  </li>
+                );
+              })}
             </ul>
           )}
           {onAdd && (
@@ -235,7 +272,15 @@ function WeekGrid({ week, monday, me, onAdd, onEdit }: WeekGridProps) {
   );
 }
 
-function ShiftCard({ shift, zone, mine, onEdit }: { shift: Shift; zone: string; mine: boolean; onEdit?: () => void }) {
+interface ShiftCardProps {
+  shift: Shift;
+  zone: string;
+  mine: boolean;
+  onEdit?: () => void;
+  onOffer?: () => void;
+}
+
+function ShiftCard({ shift, zone, mine, onEdit, onOffer }: ShiftCardProps) {
   const classes = ['shift'];
   if (!shift.staffMemberId) classes.push('open');
   if (mine) classes.push('mine');
@@ -258,13 +303,21 @@ function ShiftCard({ shift, zone, mine, onEdit }: { shift: Shift; zone: string; 
     </>
   );
 
-  return onEdit ? (
-    <button type="button" className={classes.join(' ')} onClick={onEdit} aria-label={`Edit shift ${times}, ${person}`}>
-      {body}
-    </button>
-  ) : (
-    <div className={classes.join(' ')}>{body}</div>
-  );
+  if (onEdit) {
+    return (
+      <button type="button" className={classes.join(' ')} onClick={onEdit} aria-label={`Edit shift ${times}, ${person}`}>
+        {body}
+      </button>
+    );
+  }
+  if (onOffer) {
+    return (
+      <button type="button" className={classes.join(' ')} onClick={onOffer} aria-label={`Offer your shift ${times} to a colleague`}>
+        {body}
+      </button>
+    );
+  }
+  return <div className={classes.join(' ')}>{body}</div>;
 }
 
 function HoursPanel({ week, staff }: { week: RotaWeek; staff: StaffMember[] }) {
@@ -306,6 +359,9 @@ function MyWeekPanel({ week, me }: { week: RotaWeek; me: Me }) {
           ? 'No shifts for you this week.'
           : `${mine.length} ${mine.length === 1 ? 'shift' : 'shifts'}, ${formatHours(hours)}.`}
       </p>
+      {mine.length > 0 && week.published && (
+        <p className="muted">Can't make one? Click it to offer it to a colleague, any time before it starts.</p>
+      )}
     </aside>
   );
 }

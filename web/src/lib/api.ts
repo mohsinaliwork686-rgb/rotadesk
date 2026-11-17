@@ -63,6 +63,49 @@ export interface DemoAccount {
   business: string;
 }
 
+export type SwapStatus = 'Requested' | 'Accepted' | 'Declined' | 'Approved' | 'Rejected' | 'Cancelled';
+
+export interface SwapPerson {
+  id: string;
+  name: string;
+}
+
+export interface SwapShift {
+  id: string;
+  start: string;
+  end: string;
+}
+
+export interface Swap {
+  id: string;
+  status: SwapStatus;
+  requester: SwapPerson;
+  colleague: SwapPerson;
+  offered: SwapShift;
+  return: SwapShift | null;
+  createdAt: string;
+  respondedAt: string | null;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  warnings: string[];
+}
+
+export interface SwapInput {
+  offeredShiftId: string;
+  colleagueId: string;
+  returnShiftId: string | null;
+}
+
+export type SwapAction = 'accept' | 'decline' | 'cancel' | 'approve' | 'reject';
+
+export interface InboxEmail {
+  id: string;
+  messageId: string;
+  subject: string;
+  body: string;
+  deliveredAt: string;
+}
+
 export interface Violation {
   code: string;
   message: string;
@@ -186,6 +229,12 @@ export const api = {
   createShift: (shift: ShiftInput) => request<Shift>('POST', '/shifts', shift),
   updateShift: (shiftId: string, shift: ShiftInput) => request<Shift>('PUT', `/shifts/${id(shiftId)}`, shift),
   deleteShift: (shiftId: string) => request<void>('DELETE', `/shifts/${id(shiftId)}`),
+
+  swaps: () => request<Swap[]>('GET', '/swaps'),
+  createSwap: (swap: SwapInput) => request<Swap>('POST', '/swaps', swap),
+  actOnSwap: (swapId: string, action: SwapAction) => request<Swap>('POST', `/swaps/${id(swapId)}/${action}`),
+
+  inbox: () => request<InboxEmail[]>('GET', '/inbox'),
 
   myAvailability: () => request<AvailabilityWindow[]>('GET', '/availability/mine'),
   saveMyAvailability: (windows: AvailabilityWindow[]) =>

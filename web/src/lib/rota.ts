@@ -57,6 +57,11 @@ export function hoursByPerson(shifts: Shift[], staff: StaffMember[]): PersonHour
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** A shift that has begun can't be swapped any more, so it isn't offered. */
+export function hasStarted(shift: Pick<Shift, 'start'>, now: Date = new Date()): boolean {
+  return new Date(shift.start).getTime() <= now.getTime();
+}
+
 export function openShiftCount(shifts: Shift[]): number {
   return shifts.filter((shift) => !shift.staffMemberId).length;
 }

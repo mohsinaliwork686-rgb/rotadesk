@@ -2,9 +2,11 @@ import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 
 import { Layout } from './components/Layout';
 import { AvailabilityPage } from './pages/AvailabilityPage';
+import { InboxPage } from './pages/InboxPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { RotaPage } from './pages/RotaPage';
 import { SignInPage } from './pages/SignInPage';
+import { SwapsPage } from './pages/SwapsPage';
 import { useSession } from './session';
 
 function RequireSession() {
@@ -41,7 +43,9 @@ export function App() {
           <Route index element={<Navigate to="/rota" replace />} />
           <Route path="rota" element={<RotaPage />} />
           <Route path="rota/:monday" element={<RotaPage />} />
+          <Route path="swaps" element={<SwapsPage />} />
           <Route path="availability" element={<AvailabilityPage />} />
+          <Route path="inbox" element={<InboxPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

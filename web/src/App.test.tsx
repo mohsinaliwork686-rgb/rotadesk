@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import { cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from './App';
-import type { Me, RotaWeek, StaffMember } from './lib/api';
+import type { Me, RotaWeek, StaffMember, Swap } from './lib/api';
 import { SessionProvider } from './session';
 
 // The first render of a run pays for loading React into jsdom, which can take a few seconds on a busy machine.
@@ -176,6 +176,7 @@ describe('the rota', () => {
     fakeApi((_method, path) => {
       if (path === '/api/auth/me') return { status: 200, body: amiraMe };
       if (path === '/api/weeks/2026-11-16') return { status: 200, body: { ...draftWeek, shifts: [] } };
+      if (path === '/api/staff') return { status: 200, body: staff };
       return undefined;
     });
 
@@ -273,6 +274,172 @@ describe('the rota', () => {
     const alert = await within(dialog).findByRole('alert');
     expect(alert.textContent).toContain('Amira already has a shift then.');
     expect(alert.textContent).toContain('Amira would be over 20 hours this week.');
+  });
+});
+
+describe('swaps', () => {
+  // Saturday before the week, so its shifts haven't started. Only Date is faked; Testing Library's timers run as usual.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-14T12:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const publishedWeek: RotaWeek = {
+    ...draftWeek,
+    published: true,
+    publishedAt: '2026-11-13T10:00:00Z',
+    shifts: [
+      { ...draftWeek.shifts[0]!, warnings: [] },
+      {
+        id: 's2',
+        start: '2026-11-18T09:00:00Z',
+        end: '2026-11-18T17:00:00Z',
+        staffMemberId: 'ben',
+        staffName: 'Ben',
+        warnings: [],
+      },
+    ],
+  };
+
+  const accepted: Swap = {
+    id: 'w1',
+    status: 'Accepted',
+    requester: { id: 'ben', name: 'Ben' },
+    colleague: { id: 'amira', name: 'Amira' },
+    offered: { id: 's2', start: '2026-11-18T09:00:00Z', end: '2026-11-18T17:00:00Z' },
+    return: null,
+    createdAt: '2026-11-16T12:00:00Z',
+    respondedAt: '2026-11-16T13:00:00Z',
+    decidedAt: null,
+    decidedBy: null,
+    warnings: [],
+  };
+
+  it('lets staff offer their own shift to a colleague, for one of theirs', async () => {
+    const calls = fakeApi((method, path) => {
+      if (path === '/api/auth/me') return { status: 200, body: amiraMe };
+      if (path === '/api/weeks/2026-11-16') return { status: 200, body: publishedWeek };
+      if (path === '/api/staff') return { status: 200, body: staff };
+      if (method === 'POST' && path === '/api/swaps') return { status: 201, body: accepted };
+      return undefined;
+    });
+
+    show('/rota/2026-11-16');
+    // Only her own shift can be offered; Ben's is just shown.
+    fireEvent.click(await screen.findByRole('button', { name: /Offer your shift 09:00–17:00/ }));
+    expect(screen.queryAllByRole('button', { name: /Offer your shift/ })).toHaveLength(1);
+    const dialog = screen.getByRole('dialog', { name: 'Offer your shift' });
+    expect(within(dialog).queryByRole('option', { name: 'Amira' })).toBeNull();
+    fireEvent.change(within(dialog).getByLabelText('To'), { target: { value: 'ben' } });
+    fireEvent.change(within(dialog).getByLabelText('In return'), { target: { value: 's2' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send offer' }));
+
+    expect((await screen.findByRole('status')).textContent).toContain("Sent to Ben. They'll get an email.");
+    expect(calls.find((c) => c.method === 'POST' && c.path === '/api/swaps')?.body).toEqual({
+      offeredShiftId: 's1',
+      colleagueId: 'ben',
+      returnShiftId: 's2',
+    });
+  });
+
+  it("doesn't offer a shift that has already started", async () => {
+    vi.setSystemTime(new Date('2026-11-16T10:00:00Z'));
+    fakeApi((_method, path) => {
+      if (path === '/api/auth/me') return { status: 200, body: amiraMe };
+      if (path === '/api/weeks/2026-11-16') return { status: 200, body: publishedWeek };
+      if (path === '/api/staff') return { status: 200, body: staff };
+      return undefined;
+    });
+
+    show('/rota/2026-11-16');
+    const monday = await screen.findByRole('region', { name: 'Mon 16 Nov' });
+
+    expect(within(monday).getByText('09:00–17:00')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Offer your shift/ })).toBeNull();
+  });
+
+  it('shows a manager the swaps waiting on them, and approving moves it to finished', async () => {
+    const calls = fakeApi((method, path) => {
+      if (path === '/api/auth/me') return { status: 200, body: marcus };
+      if (path === '/api/swaps') return { status: 200, body: [accepted] };
+      if (method === 'POST' && path === '/api/swaps/w1/approve') {
+        return { status: 200, body: { ...accepted, status: 'Approved', decidedBy: 'Marcus' } };
+      }
+      return undefined;
+    });
+
+    show('/swaps');
+    const card = await screen.findByRole('article', { name: 'Swap from Ben to Amira' });
+    expect(within(card).getByText('Needs you')).toBeTruthy();
+    expect(card.textContent).toContain('Ben offers Wed 18 Nov, 09:00–17:00 to Amira, with nothing back.');
+    fireEvent.click(within(card).getByRole('button', { name: 'Approve' }));
+
+    const finished = await screen.findByRole('region', { name: 'Finished' });
+    expect(within(finished).getByText('Approved by Marcus')).toBeTruthy();
+    expect(calls.some((c) => c.path === '/api/swaps/w1/approve')).toBe(true);
+  });
+
+  it("gives staff no buttons on a swap that's waiting for a manager", async () => {
+    fakeApi((_method, path) => {
+      if (path === '/api/auth/me') return { status: 200, body: amiraMe };
+      if (path === '/api/swaps') return { status: 200, body: [accepted] };
+      return undefined;
+    });
+
+    show('/swaps');
+    const card = await screen.findByRole('article', { name: 'Swap from Ben to Amira' });
+
+    expect(card.textContent).toContain('Waiting for a manager');
+    expect(card.textContent).toContain('to you');
+    expect(within(card).queryAllByRole('button')).toHaveLength(0);
+  });
+});
+
+describe('the demo inbox', () => {
+  it('appears only on the demo, and opens an email', async () => {
+    fakeApi((_method, path) => {
+      if (path === '/api/auth/me') return { status: 200, body: amiraMe };
+      if (path === '/api/demo/accounts') return { status: 200, body: [] };
+      if (path === '/api/availability/mine') return { status: 200, body: [] };
+      if (path === '/api/inbox') {
+        return {
+          status: 200,
+          body: [
+            {
+              id: 'e1',
+              messageId: 'm1',
+              subject: 'Your rota for 16–22 Nov',
+              body: 'Hi Amira,\nMon 16 Nov 09:00–17:00',
+              deliveredAt: '2026-11-13T10:00:05Z',
+            },
+          ],
+        };
+      }
+      return undefined;
+    });
+
+    show('/availability');
+    fireEvent.click(await screen.findByRole('link', { name: 'Inbox' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Your rota for 16–22 Nov/ }));
+
+    expect(screen.getByText(/Mon 16 Nov 09:00–17:00/)).toBeTruthy();
+  });
+
+  it('has no link when the demo is off', async () => {
+    fakeApi((_method, path) => {
+      if (path === '/api/auth/me') return { status: 200, body: amiraMe };
+      if (path === '/api/availability/mine') return { status: 200, body: [] };
+      return undefined;
+    });
+
+    show('/availability');
+    await screen.findByRole('heading', { name: 'Your availability' });
+
+    expect(screen.queryByRole('link', { name: 'Inbox' })).toBeNull();
   });
 });
 

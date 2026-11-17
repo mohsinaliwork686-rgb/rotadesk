@@ -629,6 +629,153 @@ div.error ul {
   margin-top: 1rem;
 }
 
+/* Notices */
+
+.notice-bar {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-weight: 600;
+}
+
+/* Swaps */
+
+.swaps,
+.inbox {
+  max-width: 760px;
+}
+
+.swaps > .muted,
+.inbox > .muted {
+  margin: 0.5rem 0 1.25rem;
+}
+
+.swaps section {
+  margin-bottom: 1.5rem;
+}
+
+.swaps section h2 {
+  margin-bottom: 0.6rem;
+}
+
+.swap-list,
+.emails {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.swap {
+  padding: 0.9rem 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.swap.needs-you {
+  border-color: var(--brand);
+  box-shadow: inset 4px 0 0 var(--brand), var(--shadow);
+}
+
+.swap-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.swap-asked {
+  margin-left: auto;
+}
+
+.swap-status {
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  background: var(--page);
+  color: var(--muted);
+}
+
+.swap-status.requested,
+.swap-status.accepted {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.swap-status.approved {
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+}
+
+.swap-status.declined,
+.swap-status.rejected {
+  background: var(--error-soft);
+  color: var(--error);
+}
+
+.needs-you-tag {
+  font-weight: 700;
+  color: #fff;
+  background: var(--brand);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+}
+
+.swap-what {
+  margin: 0;
+}
+
+.swap .shift-warning {
+  margin: 0;
+  justify-self: start;
+}
+
+.swap-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Inbox */
+
+.inbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.email {
+  padding: 0;
+}
+
+.email-head {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 0.85rem 1rem;
+}
+
+.email-subject {
+  font-weight: 600;
+}
+
+.email-body {
+  margin: 0;
+  padding: 0 1rem 1rem;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+
 /* Narrow screens: one day under another. */
 
 @media (max-width: 1100px) {
