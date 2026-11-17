@@ -1,0 +1,33 @@
+# The whole demo on one machine: PostgreSQL and the app, with the demo businesses seeded at start.
+#   docker compose up --build
+# then open http://localhost:5180 and sign in as anyone under "Try the demo".
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: rotadesk
+      POSTGRES_USER: rotadesk
+      POSTGRES_PASSWORD: rotadesk
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rotadesk -d rotadesk"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__Rotadesk: Host=db;Port=5432;Database=rotadesk;Username=rotadesk;Password=rotadesk
+      Database__MigrateOnStartup: "true"
+      Demo__Enabled: "true"
+    ports:
+      - "127.0.0.1:5180:8080"
+
+volumes:
+  db:
