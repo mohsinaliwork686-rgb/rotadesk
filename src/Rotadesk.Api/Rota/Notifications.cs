@@ -67,10 +67,14 @@ internal sealed class Notifications(RotadeskDbContext db, TimeProvider clock)
         var outcome = approved ? "The rota now shows the new shifts." : "Nothing on the rota has changed.";
         foreach (var person in new[] { requester, colleague })
         {
+            // Each of them reads about their own shift as "your".
+            var asked = person.Id == requester.Id;
+            var offeredOwner = asked ? "your" : $"{requester.Name}'s";
+            var returnOwner = asked ? $"{colleague.Name}'s" : "yours";
             Queue(
                 person,
                 $"Your swap was {verdict}",
-                $"Hi {person.Name},\n\n{manager.Name} {verdict} the swap of {requester.Name}'s shift on {When(offered.Start, offered.End, zone)}{InReturn(returned, $"{colleague.Name}'s", zone, plain: true)}. {outcome}");
+                $"Hi {person.Name},\n\n{manager.Name} {verdict} the swap of {offeredOwner} shift on {When(offered.Start, offered.End, zone)}{InReturn(returned, returnOwner, zone, plain: true)}. {outcome}");
         }
     }
 

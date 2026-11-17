@@ -93,6 +93,23 @@ public class OutboxTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task The_decision_email_tells_each_person_about_their_own_shift()
+    {
+        var week = await RotaAsync(publish: true);
+        var amira = await fixture.SignInAsync(week.Business.Staff);
+        var swap = await (await amira.PostJsonAsync("/api/swaps", new { offeredShiftId = week.AmirasShift.Id, colleagueId = week.Business.Colleague.Id, returnShiftId = week.BensShift.Id })).ReadAsync<SwapResponse>();
+        await (await fixture.SignInAsync(week.Business.Colleague)).PostJsonAsync($"/api/swaps/{swap.Id}/accept");
+        await week.Manager.PostJsonAsync($"/api/swaps/{swap.Id}/approve");
+
+        var decided = (await fixture.OutboxAsync(week.Business.Id)).Where(m => m.Subject == "Your swap was approved").ToDictionary(m => m.To, m => m.Body);
+
+        Assert.Contains("approved the swap of your shift on", decided[week.Business.Staff.Email]);
+        Assert.Contains($" for {week.Business.Colleague.Name}'s on ", decided[week.Business.Staff.Email]);
+        Assert.Contains($"approved the swap of {week.Business.Staff.Name}'s shift on", decided[week.Business.Colleague.Email]);
+        Assert.Contains(" for yours on ", decided[week.Business.Colleague.Email]);
+    }
+
+    [Fact]
     public async Task A_rejected_swap_emails_both_people()
     {
         var week = await RotaAsync(publish: true);
