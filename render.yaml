@@ -1,0 +1,27 @@
+# The live demo: the one Docker image on Render's free plan, with the database on Neon's free plan.
+# Render > New > Blueprint, pick this repository, and paste the Neon connection string when asked.
+# Free services sleep after 15 idle minutes, so the first visit after that takes about a minute.
+
+services:
+  - type: web
+    name: rotadesk
+    runtime: docker
+    plan: free
+    region: frankfurt
+    healthCheckPath: /health
+    # Deploy a commit only once its CI checks have passed.
+    autoDeployTrigger: checksPass
+    envVars:
+      # Render sends traffic to $PORT; the image listens on 8080.
+      - key: PORT
+        value: "8080"
+      # Render ends HTTPS at its proxy. Trusting X-Forwarded-Proto lets the app see HTTPS and mark the cookie Secure.
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
+      - key: Database__MigrateOnStartup
+        value: "true"
+      - key: Demo__Enabled
+        value: "true"
+      # Neon's connection string in the .NET (Npgsql) form, using the direct host rather than the pooled one.
+      - key: ConnectionStrings__Rotadesk
+        sync: false
