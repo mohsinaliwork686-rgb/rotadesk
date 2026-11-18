@@ -56,7 +56,16 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
 
 if (demo)
 {
-    await DemoSeeder.SeedAsync(app.Services);
+    // The demo data is there to look at; nothing depends on it. If it can't be written, the app says so and serves
+    // anyway, because the free host starts it again on every visit after a sleep.
+    try
+    {
+        await DemoSeeder.SeedAsync(app.Services);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Couldn't fill the demo rota. Starting without it.");
+    }
 }
 
 app.UseExceptionHandler();

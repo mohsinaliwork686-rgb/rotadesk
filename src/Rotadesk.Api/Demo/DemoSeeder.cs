@@ -69,8 +69,8 @@ internal static class DemoSeeder
     }
 
     /// <summary>
-    /// Fills this week, published with its swaps, and next week, as a draft, from the typical week. A week that already
-    /// has shifts is left as it is, so what visitors change stays until the week is over.
+    /// Fills this week, published with the swaps that can still happen, and next week, as a draft, from the typical
+    /// week. A week that already has shifts is left as it is, so what visitors change stays until the week is over.
     /// </summary>
     private static async Task FillWeeksAsync(RotadeskDbContext db, DemoBusiness demo, Guid businessId, DateTimeOffset now, CancellationToken cancellationToken)
     {
@@ -106,10 +106,19 @@ internal static class DemoSeeder
                 rotaWeek.Publish(now);
             }
 
+            // Like any swap, a sample swap needs both its shifts still ahead. The first start in a week can come after
+            // they have begun, and then that swap is left out until next week.
             foreach (var swap in demo.Swaps)
             {
+                var offered = shifts[swap.Offered];
+                var returned = swap.Return is null ? null : shifts[swap.Return];
+                if (offered.Start <= now || (returned is not null && returned.Start <= now))
+                {
+                    continue;
+                }
+
                 var colleague = staff[swap.To].Id;
-                var request = SwapRequest.Create(staff[swap.From].Id, colleague, shifts[swap.Offered], swap.Return is null ? null : shifts[swap.Return], now);
+                var request = SwapRequest.Create(staff[swap.From].Id, colleague, offered, returned, now);
                 if (swap.Accepted)
                 {
                     request.Accept(colleague, now);

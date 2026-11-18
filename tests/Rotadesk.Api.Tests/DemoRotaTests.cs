@@ -105,6 +105,37 @@ public class DemoRotaTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task A_first_start_late_in_the_week_leaves_out_a_swap_whose_shifts_have_begun()
+    {
+        // Thursday 4 March 2027, 09:00 UTC: Usman's Wednesday and Hira's Thursday have begun in Karachi, while Ben's
+        // Saturday in London is still ahead.
+        var monday = new DateOnly(2027, 3, 1);
+        await using var factory = new RotadeskFactory(fixture.ConnectionString, demo: true, now: new DateTimeOffset(2027, 3, 4, 9, 0, 0, TimeSpan.Zero));
+        var marcus = await SignInAsync("marcus@northside.example", factory);
+        var bilal = await SignInAsync("bilal@harbourbooks.example", factory);
+
+        var cafe = Assert.Single(await marcus.GetOkAsync<List<SwapResponse>>("/api/swaps"), s => InWeek(monday, s.Offered.Start));
+        Assert.Equal("Ben", cafe.Requester.Name);
+        Assert.DoesNotContain(await bilal.GetOkAsync<List<SwapResponse>>("/api/swaps"), s => InWeek(monday, s.Offered.Start));
+        Assert.True((await bilal.GetOkAsync<WeekResponse>(WeekUrl(monday))).Published);
+    }
+
+    [Fact]
+    public async Task A_first_start_at_the_end_of_the_week_still_fills_the_rota()
+    {
+        // Sunday 11 April 2027, 15:00 UTC: every sample swap's shifts are over in both businesses.
+        var monday = new DateOnly(2027, 4, 5);
+        await using var factory = new RotadeskFactory(fixture.ConnectionString, demo: true, now: new DateTimeOffset(2027, 4, 11, 15, 0, 0, TimeSpan.Zero));
+        var marcus = await SignInAsync("marcus@northside.example", factory);
+        var bilal = await SignInAsync("bilal@harbourbooks.example", factory);
+
+        var cafe = await marcus.GetOkAsync<WeekResponse>(WeekUrl(monday));
+        Assert.Equal((true, 13), (cafe.Published, cafe.Shifts.Count));
+        Assert.DoesNotContain(await marcus.GetOkAsync<List<SwapResponse>>("/api/swaps"), s => InWeek(monday, s.Offered.Start));
+        Assert.DoesNotContain(await bilal.GetOkAsync<List<SwapResponse>>("/api/swaps"), s => InWeek(monday, s.Offered.Start));
+    }
+
+    [Fact]
     public async Task A_start_in_a_new_week_fills_it_but_keeps_what_visitors_changed()
     {
         var now = new DateTimeOffset(2027, 2, 9, 9, 0, 0, TimeSpan.Zero);
