@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 
+using Npgsql;
+
 using Rotadesk.Infrastructure.Accounts;
 using Rotadesk.Infrastructure.Persistence;
 
@@ -12,12 +14,20 @@ public static class DependencyInjection
     /// <summary>Registers both contexts. The caller registers the <see cref="ITenantContext"/> for its requests.</summary>
     public static IServiceCollection AddRotadeskDatabase(this IServiceCollection services, string connectionString)
     {
+        connectionString = WithoutGssEncryption(connectionString);
         services.AddSingleton<TenantGuardInterceptor>();
         services.AddDbContext<RotadeskDbContext>((provider, options) =>
             Configure(options, connectionString).AddInterceptors(provider.GetRequiredService<TenantGuardInterceptor>()));
         services.AddDbContext<AccountsDbContext>(options => ConfigureAccounts(options, connectionString));
         return services;
     }
+
+    /// <summary>
+    /// Nothing here uses Kerberos. Left on, Npgsql tries GSS encryption first, and in the slim runtime image, which has no
+    /// Kerberos library, it logs an error on every start.
+    /// </summary>
+    private static string WithoutGssEncryption(string connectionString) =>
+        new NpgsqlConnectionStringBuilder(connectionString) { GssEncryptionMode = GssEncryptionMode.Disable }.ConnectionString;
 
     /// <summary>The database settings, shared with tests and the design-time factory.</summary>
     public static DbContextOptionsBuilder Configure(DbContextOptionsBuilder options, string connectionString) =>
