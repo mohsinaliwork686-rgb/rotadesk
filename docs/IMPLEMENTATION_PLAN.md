@@ -246,13 +246,13 @@ learn and configure, and the built-in pieces cover what this app needs.
 
 ## 15. Definition of done
 
-- [ ] Public repo, description and topics
-- [ ] This plan, committed before the code
-- [ ] README: the problem first, a screenshot, the live demo link, how to run it, configuration, non-goals
-- [ ] Every row of the test plan covered, with the tenant isolation suite as its own file
-- [ ] CI green: format, build with warnings as errors, unit tests, the API tests against real PostgreSQL, the front end checks
-- [ ] A live demo with two sample businesses and one-click sign-in
-- [ ] At least 10 commits, one logical change each
+- [x] Public repo, description and topics
+- [x] This plan, committed before the code
+- [x] README: the problem first, a screenshot, the live demo link, how to run it, configuration, non-goals
+- [x] Every row of the test plan covered, with the tenant isolation suite as its own file
+- [x] CI green: format, build with warnings as errors, unit tests, the API tests against real PostgreSQL, the front end checks
+- [x] A live demo with two sample businesses and one-click sign-in
+- [x] At least 10 commits, one logical change each
 
 ## 16. Changes since Monday
 
@@ -383,3 +383,25 @@ learn and configure, and the built-in pieces cover what this app needs.
   ASP.NET runtime image runs it as a non-root user on port 8080. `compose.yaml` adds PostgreSQL and maps the app to
   `localhost:5180` (8080 is often taken locally). On the very first start EF logs two failed reads of the migrations
   history table before it creates it; they don't come back on later starts.
+
+**Wednesday 18 November: deploy day.**
+
+- **Live at https://rotadesk.onrender.com**, as planned: one Docker web service on Render's free plan in Frankfurt,
+  with Neon's free PostgreSQL in the same region. Render now asks for a card even for the free plan; Neon doesn't.
+  The service was created in the dashboard with the settings in `render.yaml`, which stays as the record of them.
+  Render deploys a commit only after its CI checks pass.
+- **Found before it reached the host: the demo crashed on a late first start.** The seed builds this week's sample
+  swaps from fixed days, and a swap whose shift has begun is refused, so the first start of a week after Usman's
+  Wednesday threw and the app never came up. On the free host, which starts the app at every visit after a sleep, the
+  demo would have stayed down until the next Monday. The fixture's clock is a Tuesday morning, so the tests never saw
+  it. Now a sample swap whose shifts have begun is left out, and if the demo data still can't be written, the app logs
+  it and serves anyway. Two tests start the app on a Thursday and on a Sunday.
+- **Behind the host's proxy.** `ASPNETCORE_FORWARDEDHEADERS_ENABLED` makes the app trust `X-Forwarded-Proto`, so it
+  sees HTTPS and marks the cookie `Secure`; checked locally with the header and again on the live site. `PORT=8080`
+  points Render at the port the image listens on.
+- **Quieter logs.** Npgsql no longer tries GSS encryption, which logged a Kerberos error at every start in the slim
+  image, and EF's per-command logging is off in production.
+- **One deploy failed** on a connection string pasted with the quotes from Neon's snippet around it. The README says
+  the value is the bare `Host=...` form.
+- **Left as it is:** the data protection keys live in the container, so a sleep signs visitors out. The demo's
+  one-click sign-in makes that cheap; keeping the keys in the database would be the fix.
